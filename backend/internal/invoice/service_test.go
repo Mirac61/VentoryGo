@@ -16,7 +16,7 @@ func seedDraftInvoice(t *testing.T, s *Service) Invoice {
 	invoice := Invoice{
 		Status:       StatusDraft,
 		PaymentDueAt: time.Now().Add(14 * 24 * time.Hour),
-		Sender:       Contact{Name: "Sender GmbH", Street: "Hauptstr. 1", Zip: "70173", City: "Stuttgart", Country: "DE"},
+		Sender:       Issuer{Contact: Contact{Name: "Sender GmbH", Street: "Hauptstr. 1", Zip: "70173", City: "Stuttgart", Country: "DE"}},
 		Recipient:    Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
 		Items: []LineItem{
 			{Description: "Beratung", Quantity: 2, UnitPrice: 100},

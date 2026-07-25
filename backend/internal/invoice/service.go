@@ -1,7 +1,9 @@
 package invoice
 
 import (
+	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +19,10 @@ type invoiceRepository interface {
 
 type Service struct {
 	repo invoiceRepository
+}
+
+type MissingFieldsError struct {
+	Fields []string
 }
 
 func NewService(repo invoiceRepository) *Service {
@@ -62,9 +68,37 @@ func validateInvoiceData(items []LineItem, vatRate float64) error {
 	return nil
 }
 
+func (e *MissingFieldsError) Error() string {
+	return fmt.Sprintf("missing required fields: %s", strings.Join(e.Fields, ", "))
+}
+
+func validateForIssue(invoice Invoice) error {
+	var missing []string
+
+	if invoice.ServiceDate.IsZero() {
+		missing = append(missing, "serviceDate")
+	}
+
+	if invoice.Sender.IBAN == "" {
+		missing = append(missing, "senderIban")
+	}
+
+	if invoice.Sender.VatID == "" && invoice.Sender.TaxNumber == "" {
+		missing = append(missing, "senderVatId or senderTaxNumber")
+	}
+
+	if len(missing) > 0 {
+		return &MissingFieldsError{Fields: missing}
+	}
+	return nil
+}
+
 func (s *Service) Create(invoice Invoice) (Invoice, error) {
 	if err := validateInvoiceData(invoice.Items, invoice.VATRate); err != nil {
 		return Invoice{}, err
+	}
+	if invoice.Currency == "" {
+		invoice.Currency = "EUR"
 	}
 
 	invoice.ID = uuid.NewString()

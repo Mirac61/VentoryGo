@@ -25,8 +25,10 @@ type Invoice struct {
 	Status        InvoiceStatus `json:"status"`
 	CreatedAt     time.Time     `json:"createdAt"`
 	IssuedAt      time.Time     `json:"issuedAt"`
+	ServiceDate   time.Time     `json:"serviceDate"`
+	Currency      string        `json:"currency" binding:"omitempty,len=3"`
 	PaymentDueAt  time.Time     `json:"paymentDueAt" binding:"required"`
-	Sender        Contact       `json:"sender" binding:"required"`
+	Sender        Issuer        `json:"sender" binding:"required"`
 	Recipient     Contact       `json:"recipient" binding:"required"`
 	Items         []LineItem    `json:"items" binding:"required,min=1,dive"`
 	VATRate       float64       `json:"vatRate" binding:"gte=0,lte=1"`
@@ -45,6 +47,15 @@ type Contact struct {
 	Email   string `json:"email" binding:"omitempty,email"`
 	Phone   string `json:"phone"`
 	TaxID   string `json:"taxId"`
+}
+
+type Issuer struct {
+	Contact
+	VatID     string `json:"vatId"`
+	TaxNumber string `json:"taxNumber"`
+	IBAN      string `json:"iban" `
+	BIC       string `json:"bic"`
+	BankName  string `json:"bankName"`
 }
 
 type LineItem struct {

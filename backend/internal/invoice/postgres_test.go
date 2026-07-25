@@ -21,7 +21,7 @@ func TestPostgresGetByID(t *testing.T) {
 		ID:            uuid.NewString(),
 		InvoiceNumber: "INV-TEST-1",
 		Status:        StatusDraft,
-		Sender:        Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"},
+		Sender:        Issuer{Contact: Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"}},
 		Recipient:     Contact{Name: "Recipient", Street: "S2", Zip: "222", City: "C2", Country: "DE"},
 		Items: []LineItem{
 			{ID: uuid.NewString(), Position: 1, Description: "Test Item", Quantity: 1, UnitPrice: 50, Total: 50},
