@@ -56,6 +56,23 @@ func TestValidateIban_RejectsMalformedInput(t *testing.T) {
 	}
 }
 
+func TestValidateIban_RejectsUnknownOrMismatchedCountry(t *testing.T) {
+	tests := []struct {
+		name string
+		iban string
+	}{
+		{name: "unregistered country code (ZZ)", iban: "ZZ89370400440532013000"},
+		{name: "DE country code with wrong length for DE (21 instead of 22)", iban: "DE8937040044053201300"},
+		{name: "DE country code with wrong length for DE (23 instead of 22)", iban: "DE893704004405320130001"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.False(t, validateIban(tt.iban))
+		})
+	}
+}
+
 func TestValidateIban_DoesNotPanicOnBoundaryLengths(t *testing.T) {
 	tests := []struct {
 		name string
