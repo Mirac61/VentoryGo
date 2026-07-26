@@ -191,12 +191,13 @@ func (s *Service) Issue(id string) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrInvalidTransition
 		}
-
+		if err := validateForIssue(invoice); err != nil {
+			return Invoice{}, err
+		}
 		number, err := nextNumber()
 		if err != nil {
 			return Invoice{}, err
 		}
-
 		invoice.Status = StatusIssued
 		invoice.IssuedAt = time.Now().Truncate(time.Microsecond)
 		invoice.InvoiceNumber = number

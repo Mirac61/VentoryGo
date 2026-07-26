@@ -33,10 +33,14 @@ func setupRouter() (*gin.Engine, *Service) {
 func validInvoiceBody() map[string]any {
 	return map[string]any{
 		"paymentDueAt": time.Now().Add(14 * 24 * time.Hour),
-		"sender":       map[string]any{"name": "Sender GmbH", "street": "Hauptstr. 1", "zip": "70173", "city": "Stuttgart", "country": "DE"},
-		"recipient":    map[string]any{"name": "Recipient GmbH", "street": "Nebenstr. 2", "zip": "70174", "city": "Stuttgart", "country": "DE"},
-		"items":        []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100}},
-		"vatRate":      0.19,
+		"serviceDate":  time.Now().Add(-24 * time.Hour),
+		"sender": map[string]any{
+			"name": "Sender GmbH", "street": "Hauptstr. 1", "zip": "70173", "city": "Stuttgart", "country": "DE",
+			"vatId": "DE123456789", "iban": "DE89370400440532013000",
+		},
+		"recipient": map[string]any{"name": "Recipient GmbH", "street": "Nebenstr. 2", "zip": "70174", "city": "Stuttgart", "country": "DE"},
+		"items":     []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100}},
+		"vatRate":   0.19,
 	}
 }
 
@@ -104,6 +108,50 @@ func TestCreate(t *testing.T) {
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("malformed sender IBAN returns 400", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := validInvoiceBody()
+		sender := body["sender"].(map[string]any)
+		sender["iban"] = "NOT-A-VALID-IBAN"
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("draft with empty sender IBAN is still allowed", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := validInvoiceBody()
+		sender := body["sender"].(map[string]any)
+		delete(sender, "iban")
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+
+		assert.Equal(t, http.StatusCreated, w.Code)
+	})
+
+	t.Run("unknown currency code returns 400", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := validInvoiceBody()
+		body["currency"] = "XYZ"
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("draft without currency defaults to EUR", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := validInvoiceBody()
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var created Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+		assert.Equal(t, "EUR", created.Currency)
 	})
 }
 
@@ -281,5 +329,28 @@ func TestIssueHandler(t *testing.T) {
 		w := doRequest(r, http.MethodPatch, "/api/invoices/"+id, map[string]any{"notes": "x"})
 
 		assert.Equal(t, http.StatusConflict, w.Code)
+	})
+
+	t.Run("draft missing §14 UStG fields returns 422 with full field list", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := validInvoiceBody()
+		delete(body, "serviceDate")
+		sender := body["sender"].(map[string]any)
+		delete(sender, "iban")
+		delete(sender, "vatId")
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+		require.Equal(t, http.StatusCreated, w.Code)
+		var created Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+
+		w = doRequest(r, http.MethodPost, "/api/invoices/"+created.ID+"/issue", nil)
+
+		require.Equal(t, http.StatusUnprocessableEntity, w.Code)
+		var resp struct {
+			MissingFields []string `json:"missingFields"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+		assert.ElementsMatch(t, []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"}, resp.MissingFields)
 	})
 }

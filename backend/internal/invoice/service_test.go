@@ -1,6 +1,7 @@
 package invoice
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -15,9 +16,14 @@ func newTestService() *Service {
 func seedDraftInvoice(t *testing.T, s *Service) Invoice {
 	invoice := Invoice{
 		Status:       StatusDraft,
+		ServiceDate:  time.Now().Add(-24 * time.Hour),
 		PaymentDueAt: time.Now().Add(14 * 24 * time.Hour),
-		Sender:       Issuer{Contact: Contact{Name: "Sender GmbH", Street: "Hauptstr. 1", Zip: "70173", City: "Stuttgart", Country: "DE"}},
-		Recipient:    Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
+		Sender: Issuer{
+			Contact: Contact{Name: "Sender GmbH", Street: "Hauptstr. 1", Zip: "70173", City: "Stuttgart", Country: "DE"},
+			VatID:   "DE123456789",
+			IBAN:    "DE89370400440532013000",
+		},
+		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
 		Items: []LineItem{
 			{Description: "Beratung", Quantity: 2, UnitPrice: 100},
 		},
@@ -233,6 +239,69 @@ func TestIssue_AlreadyIssued_ReturnsInvalidTransition(t *testing.T) {
 
 	_, err = s.Issue(created.ID)
 	assert.ErrorIs(t, err, ErrInvalidTransition)
+}
+
+func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
+	tests := []struct {
+		name        string
+		mutate      func(*Invoice)
+		wantMissing []string
+	}{
+		{
+			name:        "missing everything required for issue",
+			mutate:      func(inv *Invoice) { inv.ServiceDate = time.Time{}; inv.Sender.IBAN = ""; inv.Sender.VatID = ""; inv.Sender.TaxNumber = "" },
+			wantMissing: []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"},
+		},
+		{
+			name:        "missing only serviceDate",
+			mutate:      func(inv *Invoice) { inv.ServiceDate = time.Time{} },
+			wantMissing: []string{"serviceDate"},
+		},
+		{
+			name:        "missing only senderIban",
+			mutate:      func(inv *Invoice) { inv.Sender.IBAN = "" },
+			wantMissing: []string{"senderIban"},
+		},
+		{
+			name:        "vatId present but taxNumber empty is still sufficient",
+			mutate:      func(inv *Invoice) { inv.Sender.VatID = "DE123456789"; inv.Sender.TaxNumber = "" },
+			wantMissing: nil,
+		},
+		{
+			name:        "taxNumber present but vatId empty is still sufficient",
+			mutate:      func(inv *Invoice) { inv.Sender.VatID = ""; inv.Sender.TaxNumber = "12/345/67890" },
+			wantMissing: nil,
+		},
+		{
+			name:        "both vatId and taxNumber empty",
+			mutate:      func(inv *Invoice) { inv.Sender.VatID = ""; inv.Sender.TaxNumber = "" },
+			wantMissing: []string{"senderVatId or senderTaxNumber"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newTestService()
+			created := seedDraftInvoice(t, s)
+
+			replacement := created
+			tt.mutate(&replacement)
+			_, err := s.Update(created.ID, replacement)
+			require.NoError(t, err)
+
+			issued, err := s.Issue(created.ID)
+
+			if tt.wantMissing == nil {
+				assert.NoError(t, err)
+				assert.Equal(t, StatusIssued, issued.Status)
+				return
+			}
+
+			var mfe *MissingFieldsError
+			require.True(t, errors.As(err, &mfe), "expected *MissingFieldsError, got %T: %v", err, err)
+			assert.ElementsMatch(t, tt.wantMissing, mfe.Fields)
+		})
+	}
 }
 
 func TestIssue_UnknownID_ReturnsNotFound(t *testing.T) {

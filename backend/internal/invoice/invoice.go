@@ -26,7 +26,7 @@ type Invoice struct {
 	CreatedAt     time.Time     `json:"createdAt"`
 	IssuedAt      time.Time     `json:"issuedAt"`
 	ServiceDate   time.Time     `json:"serviceDate"`
-	Currency      string        `json:"currency" binding:"omitempty,len=3"`
+	Currency      string        `json:"currency" binding:"omitempty,len=3,currency"`
 	PaymentDueAt  time.Time     `json:"paymentDueAt" binding:"required"`
 	Sender        Issuer        `json:"sender" binding:"required"`
 	Recipient     Contact       `json:"recipient" binding:"required"`
@@ -53,7 +53,7 @@ type Issuer struct {
 	Contact
 	VatID     string `json:"vatId"`
 	TaxNumber string `json:"taxNumber"`
-	IBAN      string `json:"iban" `
+	IBAN      string `json:"iban" binding:"omitempty,iban"`
 	BIC       string `json:"bic"`
 	BankName  string `json:"bankName"`
 }
