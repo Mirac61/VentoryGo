@@ -79,6 +79,10 @@ func validateForIssue(invoice Invoice) error {
 		missing = append(missing, "serviceDate")
 	}
 
+	if invoice.Currency == "" {
+		missing = append(missing, "currency")
+	}
+
 	if invoice.Sender.IBAN == "" {
 		missing = append(missing, "senderIban")
 	}
@@ -145,6 +149,10 @@ func (s *Service) Update(id string, replacement Invoice) (Invoice, error) {
 		replacement.Status = invoice.Status
 		replacement.CreatedAt = invoice.CreatedAt
 		replacement.IssuedAt = invoice.IssuedAt
+
+		if replacement.Currency == "" {
+			replacement.Currency = "EUR"
+		}
 
 		if err := validateInvoiceData(replacement.Items, replacement.VATRate); err != nil {
 			return Invoice{}, err

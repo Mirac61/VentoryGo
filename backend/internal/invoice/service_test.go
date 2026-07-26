@@ -304,6 +304,50 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 	}
 }
 
+func TestIssue_EmptyCurrency_ReturnsMissingCurrency(t *testing.T) {
+	// Bypasses Service.Update's defaulting to cover rows that reach the repo
+	// with an empty currency through another path (e.g. a future write path).
+	repo := NewRepository()
+	s := NewService(repo)
+	created, err := repo.Create(Invoice{
+		Status:      StatusDraft,
+		ServiceDate: time.Now().Add(-24 * time.Hour),
+		Currency:    "",
+		Sender: Issuer{
+			Contact: Contact{Name: "Sender GmbH", Street: "Hauptstr. 1", Zip: "70173", City: "Stuttgart", Country: "DE"},
+			VatID:   "DE123456789",
+			IBAN:    "DE89370400440532013000",
+		},
+		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
+		Items:     []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
+		VATRate:   0.19,
+	})
+	require.NoError(t, err)
+
+	_, err = s.Issue(created.ID)
+
+	var mfe *MissingFieldsError
+	require.True(t, errors.As(err, &mfe), "expected *MissingFieldsError, got %T: %v", err, err)
+	assert.ElementsMatch(t, []string{"currency"}, mfe.Fields)
+}
+
+func TestUpdate_OmittedCurrency_DefaultsToEUR(t *testing.T) {
+	s := newTestService()
+	created := seedDraftInvoice(t, s)
+	require.Equal(t, "EUR", created.Currency)
+
+	replacement := created
+	replacement.Currency = "" // client PUT that omits currency must not wipe it
+
+	updated, err := s.Update(created.ID, replacement)
+	require.NoError(t, err)
+	assert.Equal(t, "EUR", updated.Currency)
+
+	issued, err := s.Issue(updated.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "EUR", issued.Currency)
+}
+
 func TestIssue_UnknownID_ReturnsNotFound(t *testing.T) {
 	s := newTestService()
 
