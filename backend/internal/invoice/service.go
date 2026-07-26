@@ -151,7 +151,7 @@ func (s *Service) Update(id string, replacement Invoice) (Invoice, error) {
 		replacement.IssuedAt = invoice.IssuedAt
 
 		if replacement.Currency == "" {
-			replacement.Currency = "EUR"
+			replacement.Currency = invoice.Currency
 		}
 
 		if err := validateInvoiceData(replacement.Items, replacement.VATRate); err != nil {

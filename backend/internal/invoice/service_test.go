@@ -348,6 +348,23 @@ func TestUpdate_OmittedCurrency_DefaultsToEUR(t *testing.T) {
 	assert.Equal(t, "EUR", issued.Currency)
 }
 
+func TestUpdate_OmittedCurrency_PreservesNonEURCurrency(t *testing.T) {
+	s := newTestService()
+	created := seedDraftInvoice(t, s)
+
+	created.Currency = "USD"
+	created, err := s.Update(created.ID, created)
+	require.NoError(t, err)
+	require.Equal(t, "USD", created.Currency)
+
+	replacement := created
+	replacement.Currency = "" // client PUT that omits currency must not reset it to EUR
+
+	updated, err := s.Update(created.ID, replacement)
+	require.NoError(t, err)
+	assert.Equal(t, "USD", updated.Currency)
+}
+
 func TestIssue_UnknownID_ReturnsNotFound(t *testing.T) {
 	s := newTestService()
 
