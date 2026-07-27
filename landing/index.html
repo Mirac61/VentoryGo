@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VentoryGo — Rechnungen, einfach gemacht</title>
+    <meta name="description" content="Privacy-first Rechnungssoftware für Freelancer und kleine Unternehmen. Selbst gehostet, DSGVO-konform." />
+    <link rel="icon" type="image/png" href="images/logo.webp" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ============================= NAV ============================= -->
+<header class="nav">
+    <div class="container nav-inner">
+        <div class="nav-left">
+            <a href="/" class="logo">
+                <img src="images/VentoryGo.png" alt="VentoryGo" />
+            </a>
+            <ul class="nav-links">
+                <li><a href="#kontakt">Kontakt</a></li>
+                <li><a href="#services">Services</a></li>
+            </ul>
+        </div>
+        <div class="nav-cta">
+            <a href="/app/src/login" class="btn btn-primary">Anmelden</a>
+        </div>
+    </div>
+</header>
+
+<!-- ============================= HERO ============================= -->
+<section class="hero">
+    <video class="hero-bg-video" autoplay muted loop playsinline poster="images/invoice-mockup.webp">
+        <source src="images/background.webm" type="video/webm" />
+    </video>
+
+    <div class="container hero-content">
+        <h1>Rechnungen, einfach gemacht</h1>
+        <p class="hero-sub">Einfach starten, privat bleiben: Rechnungen für Freelancer und kleine Unternehmen.</p>
+        <a href="/app/login" class="btn btn-dark-outline">
+            Jetzt starten! <span aria-hidden="true">↗</span>
+        </a>
+    </div>
+
+    <div class="hero-mockup">
+        <img src="images/invoice-mockup.webp" alt="Beispielrechnung von VentoryGo" width="1200" height="1697" loading="eager" />
+    </div>
+</section>
+
+<!-- ===================== EDITOR SHOWCASE ===================== -->
+<section class="section" id="services">
+    <div class="container">
+        <div class="section-eyebrow-heading">
+            <h2>Rechnungen in Sekunden erstellt</h2>
+            <p>
+                Editor mit Live-Vorschau — keine starren Vorlagen, keine Excel-Tabellen.
+                Positionen, Rabatte und MwSt. passen sich automatisch an.
+            </p>
+        </div>
+
+        <div class="editor-showcase">
+            <img
+                    src="images/mockup-vg.webp"
+                    alt="VentoryGo Rechnungseditor mit Live-Vorschau auf einem Monitor"
+                    width="2954"
+                    height="2216"
+                    loading="lazy"
+            />
+        </div>
+    </div>
+</section>
+
+<!-- ===================== BYOS + PRIVACY ROWS ===================== -->
+<section class="section section-muted">
+    <div class="container">
+
+        <div class="feature-row">
+            <div class="feature-media has-shadow">
+                <!-- Server rack photo placeholder: swap in final asset -->
+                <img src="images/server_rack.jpg" alt="Serverschrank mit Netzwerkverkabelung" loading="lazy" />
+            </div>
+            <div class="feature-copy">
+                <h2>Bring Your Own Server</h2>
+                <p>
+                    Betreibe VentoryGo auf deiner eigenen Infrastruktur: Firmenserver, NAS oder Cloud-VM deiner Wahl.
+                    Deine Daten verlassen nie deine Kontrolle.
+                </p>
+                <p class="feature-list-label">Mehr Infos findest du hier:</p>
+                <a href="#" class="btn btn-primary">
+                    Wie bringe ich meine Infrastruktur auf VentoryGo? <span aria-hidden="true">↗</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="feature-row reverse">
+            <div class="feature-media">
+                <!-- Illustration placeholder: laptop / shield / server art -->
+                <img src="images/Secure%20Server-amico%201.png" alt="Illustration eines geschützten lokalen Systems" loading="lazy" />
+            </div>
+            <div class="feature-copy">
+                <h2>Deine Daten bleiben bei dir</h2>
+                <p>
+                    Keine Cloud, kein Vendor-Lock-in. VentoryGo läuft vollständig lokal — als Docker-Container auf deiner eigenen Infrastruktur.
+                </p>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- ============================= FOOTER ============================= -->
+<footer class="footer" id="kontakt">
+    <div class="container footer-grid">
+        <div class="footer-brand">
+            <img src="images/VentoryGo_dark.png" alt="Dark-Mode-Version des Logos" width="59" height="56" loading="lazy" />
+            <p class="footer-desc"> Privacy-first Rechnungssoftware für Freelancer und kleine Unternehmen. Selbst gehostet, DSGVO-konform.</p>
+        </div>
+        <div class="footer-col">
+            <h3>Ressourcen</h3>
+            <ul>
+                <li><a href="#">Dokumentation</a></li>
+                <li><a href="https://github.com/Mirac61/Invoice">GitHub</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h3>Unternehmen &amp; Rechtliches</h3>
+            <ul>
+                <li><a href="#">Impressum</a></li>
+                <li><a href="#">Datenschutzerklärung</a></li>
+                <li><a href="#">AGB</a></li>
+                <li><a href="#">Auftragsverarbeitung</a></li>
+            </ul>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
