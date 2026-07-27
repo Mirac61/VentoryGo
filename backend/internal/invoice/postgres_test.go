@@ -19,9 +19,9 @@ func TestPostgresGetByID(t *testing.T) {
 
 	invoice := Invoice{
 		ID:            uuid.NewString(),
-		InvoiceNumber: "INV-TEST-1",
+		InvoiceNumber: "INV-TEST-" + uuid.NewString(),
 		Status:        StatusDraft,
-		Sender:        Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"},
+		Sender:        Issuer{Contact: Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"}},
 		Recipient:     Contact{Name: "Recipient", Street: "S2", Zip: "222", City: "C2", Country: "DE"},
 		Items: []LineItem{
 			{ID: uuid.NewString(), Position: 1, Description: "Test Item", Quantity: 1, UnitPrice: 50, Total: 50},
@@ -31,6 +31,7 @@ func TestPostgresGetByID(t *testing.T) {
 
 	created, err := repo.Create(invoice)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = repo.Delete(created.ID) })
 
 	fetched, err := repo.GetByID(created.ID)
 	require.NoError(t, err)

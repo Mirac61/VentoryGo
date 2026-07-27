@@ -12,8 +12,8 @@ import (
 )
 
 const invoiceColumns = `
-	id, invoice_number, status, created_at, issued_at, payment_due_at,
-	sender_name, sender_street, sender_zip, sender_city, sender_country, sender_email, sender_phone, sender_tax_id,
+	id, invoice_number, status, created_at, issued_at, payment_due_at, service_date, currency, 
+	sender_name, sender_street, sender_zip, sender_city, sender_country, sender_email, sender_phone, sender_tax_id, sender_vat_id, sender_tax_number, sender_iban, sender_bic, sender_bank_name,
 	recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, recipient_email, recipient_phone, recipient_tax_id,
 	vat_rate, net_total, vat_amount, gross_total, notes`
 
@@ -34,8 +34,8 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 func scanInvoice(row rowScanner) (Invoice, error) {
 	var invoice Invoice
 	err := row.Scan(
-		&invoice.ID, &invoice.InvoiceNumber, &invoice.Status, &invoice.CreatedAt, &invoice.IssuedAt, &invoice.PaymentDueAt,
-		&invoice.Sender.Name, &invoice.Sender.Street, &invoice.Sender.Zip, &invoice.Sender.City, &invoice.Sender.Country, &invoice.Sender.Email, &invoice.Sender.Phone, &invoice.Sender.TaxID,
+		&invoice.ID, &invoice.InvoiceNumber, &invoice.Status, &invoice.CreatedAt, &invoice.IssuedAt, &invoice.PaymentDueAt, &invoice.ServiceDate, &invoice.Currency,
+		&invoice.Sender.Name, &invoice.Sender.Street, &invoice.Sender.Zip, &invoice.Sender.City, &invoice.Sender.Country, &invoice.Sender.Email, &invoice.Sender.Phone, &invoice.Sender.TaxID, &invoice.Sender.VatID, &invoice.Sender.TaxNumber, &invoice.Sender.IBAN, &invoice.Sender.BIC, &invoice.Sender.BankName,
 		&invoice.Recipient.Name, &invoice.Recipient.Street, &invoice.Recipient.Zip, &invoice.Recipient.City, &invoice.Recipient.Country, &invoice.Recipient.Email, &invoice.Recipient.Phone, &invoice.Recipient.TaxID,
 		&invoice.VATRate, &invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes,
 	)
@@ -197,9 +197,9 @@ func (r *PostgresRepository) Create(invoice Invoice) (Invoice, error) {
 func insertInvoice(ctx context.Context, tx pgx.Tx, invoice Invoice) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO invoices (`+invoiceColumns+`)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
-	`, invoice.ID, invoice.InvoiceNumber, invoice.Status, invoice.CreatedAt, invoice.IssuedAt, invoice.PaymentDueAt,
-		invoice.Sender.Name, invoice.Sender.Street, invoice.Sender.Zip, invoice.Sender.City, invoice.Sender.Country, invoice.Sender.Email, invoice.Sender.Phone, invoice.Sender.TaxID,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+	`, invoice.ID, invoice.InvoiceNumber, invoice.Status, invoice.CreatedAt, invoice.IssuedAt, invoice.PaymentDueAt, invoice.ServiceDate, invoice.Currency,
+		invoice.Sender.Name, invoice.Sender.Street, invoice.Sender.Zip, invoice.Sender.City, invoice.Sender.Country, invoice.Sender.Email, invoice.Sender.Phone, invoice.Sender.TaxID, invoice.Sender.VatID, invoice.Sender.TaxNumber, invoice.Sender.IBAN, invoice.Sender.BIC, invoice.Sender.BankName,
 		invoice.Recipient.Name, invoice.Recipient.Street, invoice.Recipient.Zip, invoice.Recipient.City, invoice.Recipient.Country, invoice.Recipient.Email, invoice.Recipient.Phone, invoice.Recipient.TaxID,
 		invoice.VATRate, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal, invoice.Notes)
 	return err
@@ -264,13 +264,13 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc) (Invoice, error) {
 
 	_, err = tx.Exec(ctx, `
 		UPDATE invoices SET
-			invoice_number = $1, status = $2, issued_at = $3, payment_due_at = $4,
-			sender_name = $5, sender_street = $6, sender_zip = $7, sender_city = $8, sender_country = $9, sender_email = $10, sender_phone = $11, sender_tax_id = $12,
-			recipient_name = $13, recipient_street = $14, recipient_zip = $15, recipient_city = $16, recipient_country = $17, recipient_email = $18, recipient_phone = $19, recipient_tax_id = $20,
-			vat_rate = $21, net_total = $22, vat_amount = $23, gross_total = $24, notes = $25
-		WHERE id = $26
-	`, updated.InvoiceNumber, updated.Status, updated.IssuedAt, updated.PaymentDueAt,
-		updated.Sender.Name, updated.Sender.Street, updated.Sender.Zip, updated.Sender.City, updated.Sender.Country, updated.Sender.Email, updated.Sender.Phone, updated.Sender.TaxID,
+			invoice_number = $1, status = $2, issued_at = $3, payment_due_at = $4, service_date = $5, currency = $6,
+			sender_name = $7, sender_street = $8, sender_zip = $9, sender_city = $10, sender_country = $11, sender_email = $12, sender_phone = $13, sender_tax_id = $14, sender_vat_id = $15, sender_tax_number = $16, sender_iban = $17, sender_bic = $18, sender_bank_name = $19,
+			recipient_name = $20, recipient_street = $21, recipient_zip = $22, recipient_city = $23, recipient_country = $24, recipient_email = $25, recipient_phone = $26, recipient_tax_id = $27,
+			vat_rate = $28, net_total = $29, vat_amount = $30, gross_total = $31, notes = $32
+		WHERE id = $33
+	`, updated.InvoiceNumber, updated.Status, updated.IssuedAt, updated.PaymentDueAt, updated.ServiceDate, updated.Currency,
+		updated.Sender.Name, updated.Sender.Street, updated.Sender.Zip, updated.Sender.City, updated.Sender.Country, updated.Sender.Email, updated.Sender.Phone, updated.Sender.TaxID, updated.Sender.VatID, updated.Sender.TaxNumber, updated.Sender.IBAN, updated.Sender.BIC, updated.Sender.BankName,
 		updated.Recipient.Name, updated.Recipient.Street, updated.Recipient.Zip, updated.Recipient.City, updated.Recipient.Country, updated.Recipient.Email, updated.Recipient.Phone, updated.Recipient.TaxID,
 		updated.VATRate, updated.NetTotal, updated.VATAmount, updated.GrossTotal, updated.Notes, updated.ID)
 	if err != nil {

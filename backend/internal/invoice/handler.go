@@ -22,6 +22,12 @@ func init() {
 		}
 		return !t.IsZero()
 	})
+	v.RegisterValidation("iban", func(fl validator.FieldLevel) bool {
+		return validateIban(fl.Field().String())
+	})
+	v.RegisterValidation("currency", func(fl validator.FieldLevel) bool {
+		return validateCurrency(fl.Field().String())
+	})
 }
 
 type Handler struct {
@@ -151,6 +157,13 @@ func (h *Handler) Issue(c *gin.Context) {
 	}
 	if errors.Is(err, ErrInvalidTransition) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
+	if mfe, ok := errors.AsType[*MissingFieldsError](err); ok {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error":         err.Error(),
+			"missingFields": mfe.Fields,
+		})
 		return
 	}
 	if err != nil {

@@ -1,5 +1,6 @@
 # Go
 backend/tmp/
+backend/backend
 *.exe
 
 # Node/React
