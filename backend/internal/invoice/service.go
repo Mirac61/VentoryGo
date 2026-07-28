@@ -110,6 +110,7 @@ func (s *Service) Create(invoice Invoice) (Invoice, error) {
 	// keep the in-memory value equal to what a later read from the DB returns.
 	invoice.CreatedAt = time.Now().Truncate(time.Microsecond)
 	invoice.Status = StatusDraft
+	invoice.InvoiceNumber = nil
 
 	for i := range invoice.Items {
 		invoice.Items[i].ID = uuid.NewString()
@@ -208,7 +209,7 @@ func (s *Service) Issue(id string) (Invoice, error) {
 		}
 		invoice.Status = StatusIssued
 		invoice.IssuedAt = time.Now().Truncate(time.Microsecond)
-		invoice.InvoiceNumber = number
+		invoice.InvoiceNumber = &number
 		return invoice, nil
 	})
 }

@@ -21,7 +21,7 @@ const (
 
 type Invoice struct {
 	ID            string        `json:"id"`
-	InvoiceNumber string        `json:"invoiceNumber"`
+	InvoiceNumber *string       `json:"invoiceNumber"`
 	Status        InvoiceStatus `json:"status"`
 	CreatedAt     time.Time     `json:"createdAt"`
 	IssuedAt      time.Time     `json:"issuedAt"`

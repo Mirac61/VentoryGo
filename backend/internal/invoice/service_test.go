@@ -13,8 +13,14 @@ func newTestService() *Service {
 	return NewService(NewRepository())
 }
 
-func seedDraftInvoice(t *testing.T, s *Service) Invoice {
-	invoice := Invoice{
+// ptr is a shorthand for taking the address of a literal, which Go does not
+// allow directly.
+func ptr[T any](v T) *T { return &v }
+
+// draftInvoice returns an unsaved invoice that satisfies every requirement for
+// issuing, so tests can vary single fields without repeating the whole struct.
+func draftInvoice() Invoice {
+	return Invoice{
 		Status:       StatusDraft,
 		ServiceDate:  time.Now().Add(-24 * time.Hour),
 		PaymentDueAt: time.Now().Add(14 * 24 * time.Hour),
@@ -29,7 +35,10 @@ func seedDraftInvoice(t *testing.T, s *Service) Invoice {
 		},
 		VATRate: 0.19,
 	}
-	created, err := s.Create(invoice)
+}
+
+func seedDraftInvoice(t *testing.T, s *Service) Invoice {
+	created, err := s.Create(draftInvoice())
 	require.NoError(t, err)
 	return created
 }
@@ -100,21 +109,73 @@ func TestPartialUpdate_UnknownID_ReturnsNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
+func TestCreate_DraftHasNoInvoiceNumber(t *testing.T) {
+	s := newTestService()
+
+	created, err := s.Create(draftInvoice())
+
+	require.NoError(t, err)
+	assert.Equal(t, StatusDraft, created.Status)
+	assert.Nil(t, created.InvoiceNumber, "a draft must not carry a number before it is issued")
+}
+
+func TestCreate_IgnoresClientSuppliedInvoiceNumber(t *testing.T) {
+	s := newTestService()
+
+	draft := draftInvoice()
+	draft.InvoiceNumber = ptr("INV-2026-0001")
+
+	created, err := s.Create(draft)
+
+	require.NoError(t, err)
+	assert.Nil(t, created.InvoiceNumber, "the number is server owned and must be discarded on create")
+}
+
 func TestUpdate_PreservesServerManagedFields(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
 	tampered := created
 	tampered.Status = StatusPaid
-	tampered.InvoiceNumber = "HACKED-001"
+	tampered.InvoiceNumber = ptr("HACKED-001")
 	tampered.CreatedAt = time.Time{}
 
 	updated, err := s.Update(created.ID, tampered)
 
 	require.NoError(t, err)
 	assert.Equal(t, created.Status, updated.Status)
-	assert.Equal(t, created.InvoiceNumber, updated.InvoiceNumber)
+	assert.Nil(t, updated.InvoiceNumber, "a PUT must not be able to set the number on a draft")
 	assert.Equal(t, created.CreatedAt, updated.CreatedAt)
+}
+
+func TestUpdate_IssuedNumberSurvivesTampering(t *testing.T) {
+	repo := NewRepository()
+	s := NewService(repo)
+	created := seedDraftInvoice(t, s)
+
+	issued, err := s.Issue(created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, issued.InvoiceNumber)
+
+	// Drop back to draft behind the service's back: Update refuses non-drafts,
+	// but the number must be preserved for its own sake, not only because the
+	// status check happens to reject the call.
+	stored, err := repo.GetByID(issued.ID)
+	require.NoError(t, err)
+	stored.Status = StatusDraft
+	_, err = repo.Update(stored.ID, func(Invoice, func() (string, error)) (Invoice, error) {
+		return stored, nil
+	})
+	require.NoError(t, err)
+
+	tampered := stored
+	tampered.InvoiceNumber = ptr("HACKED-001")
+
+	updated, err := s.Update(stored.ID, tampered)
+
+	require.NoError(t, err)
+	require.NotNil(t, updated.InvoiceNumber)
+	assert.Equal(t, *issued.InvoiceNumber, *updated.InvoiceNumber)
 }
 
 func seedIssuedInvoice(t *testing.T, repo *Repository) Invoice {
@@ -213,7 +274,8 @@ func TestIssue_Draft_SetsNumberAndTimestamp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StatusIssued, issued.Status)
 	assert.False(t, issued.IssuedAt.IsZero())
-	assert.Regexp(t, `^\d{4}-\d{4}$`, issued.InvoiceNumber)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Regexp(t, `\d{4}-\d{4}$`, *issued.InvoiceNumber)
 }
 
 func TestIssue_AssignsSequentialNumbers(t *testing.T) {
@@ -226,8 +288,10 @@ func TestIssue_AssignsSequentialNumbers(t *testing.T) {
 	b, err := s.Issue(second.ID)
 	require.NoError(t, err)
 
-	assert.Regexp(t, `^\d{4}-0001$`, a.InvoiceNumber)
-	assert.Regexp(t, `^\d{4}-0002$`, b.InvoiceNumber)
+	require.NotNil(t, a.InvoiceNumber)
+	require.NotNil(t, b.InvoiceNumber)
+	assert.Regexp(t, `\d{4}-0001$`, *a.InvoiceNumber)
+	assert.Regexp(t, `\d{4}-0002$`, *b.InvoiceNumber)
 }
 
 func TestIssue_AlreadyIssued_ReturnsInvalidTransition(t *testing.T) {
@@ -248,8 +312,13 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 		wantMissing []string
 	}{
 		{
-			name:        "missing everything required for issue",
-			mutate:      func(inv *Invoice) { inv.ServiceDate = time.Time{}; inv.Sender.IBAN = ""; inv.Sender.VatID = ""; inv.Sender.TaxNumber = "" },
+			name: "missing everything required for issue",
+			mutate: func(inv *Invoice) {
+				inv.ServiceDate = time.Time{}
+				inv.Sender.IBAN = ""
+				inv.Sender.VatID = ""
+				inv.Sender.TaxNumber = ""
+			},
 			wantMissing: []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"},
 		},
 		{

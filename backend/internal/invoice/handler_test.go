@@ -80,6 +80,32 @@ func TestCreate(t *testing.T) {
 		assert.NotEmpty(t, created.ID)
 	})
 
+	t.Run("draft serializes invoiceNumber as null", func(t *testing.T) {
+		r, _ := setupRouter()
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", validInvoiceBody())
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &raw))
+		value, present := raw["invoiceNumber"]
+		require.True(t, present, "clients rely on the key being there")
+		assert.Nil(t, value, "a draft must serialize as null, not as an empty string")
+	})
+
+	t.Run("client supplied invoiceNumber is discarded", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := validInvoiceBody()
+		body["invoiceNumber"] = "INV-2026-0001" // client tries to pick its own number
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &raw))
+		assert.Nil(t, raw["invoiceNumber"])
+	})
+
 	t.Run("missing required field returns 400", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
@@ -229,6 +255,20 @@ func TestUpdateHandler(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
+	t.Run("cannot set invoiceNumber on a draft", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createInvoice(t, r)
+		body := validInvoiceBody()
+		body["invoiceNumber"] = "INV-2026-0001"
+
+		w := doRequest(r, http.MethodPut, "/api/invoices/"+id, body)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &raw))
+		assert.Nil(t, raw["invoiceNumber"])
+	})
+
 	t.Run("unknown returns 404", func(t *testing.T) {
 		r, _ := setupRouter()
 
@@ -300,7 +340,22 @@ func TestIssueHandler(t *testing.T) {
 		var issued Invoice
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &issued))
 		assert.Equal(t, StatusIssued, issued.Status)
-		assert.NotEmpty(t, issued.InvoiceNumber)
+		require.NotNil(t, issued.InvoiceNumber)
+		assert.NotEmpty(t, *issued.InvoiceNumber)
+	})
+
+	t.Run("issued serializes invoiceNumber as a string", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createInvoice(t, r)
+
+		w := doRequest(r, http.MethodPost, "/api/invoices/"+id+"/issue", nil)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &raw))
+		number, ok := raw["invoiceNumber"].(string)
+		require.Truef(t, ok, "expected a JSON string, got %#v", raw["invoiceNumber"])
+		assert.NotEmpty(t, number)
 	})
 
 	t.Run("already issued returns 409", func(t *testing.T) {
