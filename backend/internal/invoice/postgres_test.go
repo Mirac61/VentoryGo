@@ -68,6 +68,33 @@ func counterOf(t *testing.T, number string) int {
 	return counter
 }
 
+// yearOf extracts the year from a formatted invoice number, the segment in
+// front of the counter.
+func yearOf(t *testing.T, number string) int {
+	t.Helper()
+
+	parts := strings.Split(number, "-")
+	require.GreaterOrEqualf(t, len(parts), 2, "unexpected invoice number format %q", number)
+	year, err := strconv.Atoi(parts[len(parts)-2])
+	require.NoErrorf(t, err, "unexpected invoice number format %q", number)
+	return year
+}
+
+// forgetCounters clears the counter rows of the given years before and after
+// the test. The table is shared with every other test in this database, so
+// year-reset tests use years far in the future and clean up behind themselves.
+func forgetCounters(t *testing.T, pool *pgxpool.Pool, years ...int) {
+	t.Helper()
+
+	remove := func() {
+		_, err := pool.Exec(context.Background(),
+			`DELETE FROM invoice_counters WHERE year = ANY($1::int[])`, years)
+		require.NoError(t, err)
+	}
+	remove()
+	t.Cleanup(remove)
+}
+
 func TestPostgresGetByID(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
@@ -204,10 +231,10 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 	before := readCounter(t, pool, year)
 
 	// Draw a number and then fail, the way a validation or write error after
-	// nextNumber would.
+	// nextCounter would.
 	boom := errors.New("boom")
-	_, err := repo.Update(failing.ID, func(_ Invoice, nextNumber func() (string, error)) (Invoice, error) {
-		if _, err := nextNumber(); err != nil {
+	_, err := repo.Update(failing.ID, func(_ Invoice, nextCounter func(time.Time) (int, error)) (Invoice, error) {
+		if _, err := nextCounter(time.Now()); err != nil {
 			return Invoice{}, err
 		}
 		return Invoice{}, boom
@@ -225,4 +252,67 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)
 	assert.Equal(t, before+1, counterOf(t, *issued.InvoiceNumber), "the next issue gets the number the failed one drew")
+}
+
+func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+
+	const oldYear, newYear = 2999, 3000
+	forgetCounters(t, pool, oldYear, newYear)
+
+	last := createPostgresDraft(t, s, repo)
+	first := createPostgresDraft(t, s, repo)
+
+	s.now = func() time.Time {
+		return time.Date(oldYear, 12, 31, 23, 59, 0, 0, s.numbering.Location)
+	}
+	issuedLast, err := s.Issue(last.ID)
+	require.NoError(t, err)
+
+	s.now = func() time.Time {
+		return time.Date(newYear, 1, 1, 0, 1, 0, 0, s.numbering.Location)
+	}
+	issuedFirst, err := s.Issue(first.ID)
+	require.NoError(t, err)
+
+	require.NotNil(t, issuedLast.InvoiceNumber)
+	require.NotNil(t, issuedFirst.InvoiceNumber)
+	assert.Equal(t, "INV-2999-0001", *issuedLast.InvoiceNumber)
+	assert.Equal(t, "INV-3000-0001", *issuedFirst.InvoiceNumber, "the new year starts over at 0001")
+
+	// Read back from the database, not from the returned struct, so the stored
+	// issued_at is what gets compared against the year in the number.
+	for _, id := range []string{last.ID, first.ID} {
+		stored, err := repo.GetByID(id)
+		require.NoError(t, err)
+		require.NotNil(t, stored.InvoiceNumber)
+		assert.Equalf(t, yearOf(t, *stored.InvoiceNumber), stored.IssuedAt.In(s.numbering.Location).Year(),
+			"number %q and issued_at must agree on the year", *stored.InvoiceNumber)
+	}
+}
+
+func TestPostgresIssue_UTCServerUsesConfiguredZoneForYear(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+
+	const oldYear, newYear = 2997, 2998
+	forgetCounters(t, pool, oldYear, newYear)
+
+	draft := createPostgresDraft(t, s, repo)
+
+	// A server running in UTC at 23:30 on New Year's Eve is already 00:30 on
+	// January 1st in Europe/Berlin, and the number has to follow the zone.
+	s.now = func() time.Time {
+		return time.Date(oldYear, 12, 31, 23, 30, 0, 0, time.UTC)
+	}
+	issued, err := s.Issue(draft.ID)
+	require.NoError(t, err)
+
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Equal(t, "INV-2998-0001", *issued.InvoiceNumber)
+	assert.Equal(t, 0, readCounter(t, pool, oldYear), "the old year must not be touched")
+	assert.Equal(t, 1, readCounter(t, pool, newYear))
 }

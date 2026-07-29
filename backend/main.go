@@ -22,6 +22,11 @@ func main() {
 	defer pool.Close()
 	log.Println("connected to database successfully")
 
+	numbering, err := invoice.NumberingFromEnv()
+	if err != nil {
+		log.Fatalf("failed to read invoice numbering config: %v", err)
+	}
+
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
@@ -31,7 +36,7 @@ func main() {
 	}))
 
 	repo := invoice.NewPostgresRepository(pool)
-	service := invoice.NewService(repo)
+	service := invoice.NewServiceWithNumbering(repo, numbering)
 	handler := invoice.NewHandler(service)
 
 	r.POST("/api/invoices", handler.Create)

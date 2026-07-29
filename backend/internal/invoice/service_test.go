@@ -163,7 +163,7 @@ func TestUpdate_IssuedNumberSurvivesTampering(t *testing.T) {
 	stored, err := repo.GetByID(issued.ID)
 	require.NoError(t, err)
 	stored.Status = StatusDraft
-	_, err = repo.Update(stored.ID, func(Invoice, func() (string, error)) (Invoice, error) {
+	_, err = repo.Update(stored.ID, func(Invoice, func(time.Time) (int, error)) (Invoice, error) {
 		return stored, nil
 	})
 	require.NoError(t, err)
@@ -455,14 +455,36 @@ func TestIssue_ThenUpdate_ReturnsNotUpdatable(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotUpdatable)
 }
 
-func TestNextInvoiceNumber_ResetsOnNewYear(t *testing.T) {
+func TestNextCounter_ResetsOnNewYear(t *testing.T) {
 	repo := NewRepository()
 
-	first, err := repo.nextInvoiceNumber(time.Date(2025, 12, 31, 23, 0, 0, 0, time.UTC))
+	first, err := repo.nextCounter(time.Date(2025, 12, 31, 23, 0, 0, 0, time.UTC))
 	require.NoError(t, err)
-	assert.Equal(t, "2025-0001", first)
+	assert.Equal(t, 1, first)
 
-	second, err := repo.nextInvoiceNumber(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	second, err := repo.nextCounter(time.Date(2025, 12, 31, 23, 30, 0, 0, time.UTC))
 	require.NoError(t, err)
-	assert.Equal(t, "2026-0001", second)
+	assert.Equal(t, 2, second)
+
+	third, err := repo.nextCounter(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+	assert.Equal(t, 1, third)
+}
+
+func TestIssue_NumberYearFollowsIssuedAt(t *testing.T) {
+	s := newTestService()
+	created := seedDraftInvoice(t, s)
+
+	// 23:59:59 UTC on New Year's Eve is already the next year in Europe/Berlin.
+	// Number and issuedAt come from one timestamp, so both have to move.
+	s.now = func() time.Time {
+		return time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
+	}
+
+	issued, err := s.Issue(created.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Equal(t, "INV-2026-0001", *issued.InvoiceNumber)
+	assert.Equal(t, 2026, issued.IssuedAt.Year())
 }

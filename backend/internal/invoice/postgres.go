@@ -3,7 +3,6 @@ package invoice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -229,7 +228,7 @@ func (r *PostgresRepository) Delete(id string) error {
 	return nil
 }
 
-func nextInvoiceNumber(ctx context.Context, tx pgx.Tx, now time.Time) (string, error) {
+func nextInvoiceCounter(ctx context.Context, tx pgx.Tx, now time.Time) (int, error) {
 	var counter int
 	err := tx.QueryRow(ctx, `
 		INSERT INTO invoice_counters (year, counter) VALUES ($1, 1)
@@ -237,9 +236,9 @@ func nextInvoiceNumber(ctx context.Context, tx pgx.Tx, now time.Time) (string, e
 		RETURNING counter
 	`, now.Year()).Scan(&counter)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	return fmt.Sprintf("%d-%04d", now.Year(), counter), nil
+	return counter, nil
 }
 
 func (r *PostgresRepository) Update(id string, fn UpdateFunc) (Invoice, error) {
@@ -263,11 +262,11 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc) (Invoice, error) {
 		return Invoice{}, err
 	}
 
-	nextNumber := func() (string, error) {
-		return nextInvoiceNumber(ctx, tx, time.Now())
+	nextCounter := func(now time.Time) (int, error) {
+		return nextInvoiceCounter(ctx, tx, now)
 	}
 
-	updated, err := fn(existing, nextNumber)
+	updated, err := fn(existing, nextCounter)
 	if err != nil {
 		return Invoice{}, err
 	}

@@ -18,7 +18,9 @@ type invoiceRepository interface {
 }
 
 type Service struct {
-	repo invoiceRepository
+	repo      invoiceRepository
+	numbering Numbering
+	now       func() time.Time
 }
 
 type MissingFieldsError struct {
@@ -26,7 +28,11 @@ type MissingFieldsError struct {
 }
 
 func NewService(repo invoiceRepository) *Service {
-	return &Service{repo: repo}
+	return NewServiceWithNumbering(repo, DefaultNumbering())
+}
+
+func NewServiceWithNumbering(repo invoiceRepository, numbering Numbering) *Service {
+	return &Service{repo: repo, numbering: numbering, now: time.Now}
 }
 
 func prepareItems(items []LineItem) {
@@ -108,7 +114,7 @@ func (s *Service) Create(invoice Invoice) (Invoice, error) {
 	invoice.ID = uuid.NewString()
 	// Postgres TIMESTAMPTZ stores microsecond precision, so truncate here to
 	// keep the in-memory value equal to what a later read from the DB returns.
-	invoice.CreatedAt = time.Now().Truncate(time.Microsecond)
+	invoice.CreatedAt = s.now().Truncate(time.Microsecond)
 	invoice.Status = StatusDraft
 	invoice.InvoiceNumber = nil
 
@@ -140,7 +146,7 @@ func (s *Service) Delete(id string) error {
 }
 
 func (s *Service) Update(id string, replacement Invoice) (Invoice, error) {
-	mutate := func(invoice Invoice, _ func() (string, error)) (Invoice, error) {
+	mutate := func(invoice Invoice, _ func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrNotUpdatable
 		}
@@ -165,7 +171,7 @@ func (s *Service) Update(id string, replacement Invoice) (Invoice, error) {
 }
 
 func (s *Service) PartialUpdate(id string, patch InvoicePatch) (Invoice, error) {
-	mutate := func(invoice Invoice, _ func() (string, error)) (Invoice, error) {
+	mutate := func(invoice Invoice, _ func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrNotUpdatable
 		}
@@ -196,19 +202,25 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch) (Invoice, error) 
 }
 
 func (s *Service) Issue(id string) (Invoice, error) {
-	return s.repo.Update(id, func(invoice Invoice, nextNumber func() (string, error)) (Invoice, error) {
+	return s.repo.Update(id, func(invoice Invoice, nextCounter func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrInvalidTransition
 		}
 		if err := validateForIssue(invoice); err != nil {
 			return Invoice{}, err
 		}
-		number, err := nextNumber()
+
+		// Nummer und issuedAt kommen aus demselben Zeitpunkt, sonst kann das
+		// Jahr in der Nummer am Silvesterabend vom Jahr in issuedAt abweichen.
+		now := s.now().In(s.numbering.Location).Truncate(time.Microsecond)
+		counter, err := nextCounter(now)
 		if err != nil {
 			return Invoice{}, err
 		}
+		number := s.numbering.Format(now.Year(), counter)
+
 		invoice.Status = StatusIssued
-		invoice.IssuedAt = time.Now().Truncate(time.Microsecond)
+		invoice.IssuedAt = now
 		invoice.InvoiceNumber = &number
 		return invoice, nil
 	})

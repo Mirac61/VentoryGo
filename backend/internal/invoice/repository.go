@@ -1,7 +1,6 @@
 package invoice
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -25,7 +24,7 @@ func cloneInvoice(invoice Invoice) Invoice {
 	return invoice
 }
 
-func (r *Repository) nextInvoiceNumber(now time.Time) (string, error) {
+func (r *Repository) nextCounter(now time.Time) (int, error) {
 	r.counterMu.Lock()
 	defer r.counterMu.Unlock()
 
@@ -35,7 +34,7 @@ func (r *Repository) nextInvoiceNumber(now time.Time) (string, error) {
 		r.counter = 0
 	}
 	r.counter++
-	return fmt.Sprintf("%d-%04d", year, r.counter), nil
+	return r.counter, nil
 }
 
 func (r *Repository) Create(invoice Invoice) (Invoice, error) {
@@ -81,10 +80,10 @@ func (r *Repository) Delete(id string) error {
 }
 
 // UpdateFunc mutates an invoice. It runs inside the repository transaction so
-// that read, modify and write happen atomically. nextNumber draws the next
-// invoice number from the same transaction and must only be called when the
-// number is actually used.
-type UpdateFunc func(existing Invoice, nextNumber func() (string, error)) (Invoice, error)
+// that read, modify and write happen atomically. nextCounter draws the next
+// counter of the given year from the same transaction and must only be called
+// when the number is actually used.
+type UpdateFunc func(existing Invoice, nextCounter func(now time.Time) (int, error)) (Invoice, error)
 
 func (r *Repository) Update(id string, fn UpdateFunc) (Invoice, error) {
 	r.mu.Lock()
@@ -95,11 +94,7 @@ func (r *Repository) Update(id string, fn UpdateFunc) (Invoice, error) {
 		return Invoice{}, ErrNotFound
 	}
 
-	nextNumber := func() (string, error) {
-		return r.nextInvoiceNumber(time.Now())
-	}
-
-	updated, err := fn(cloneInvoice(existing), nextNumber)
+	updated, err := fn(cloneInvoice(existing), r.nextCounter)
 	if err != nil {
 		return Invoice{}, err
 	}
