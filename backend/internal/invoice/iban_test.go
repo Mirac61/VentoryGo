@@ -20,9 +20,9 @@ func TestValidateIban_ValidIbans(t *testing.T) {
 		{name: "Netherlands", country: "NL", iban: "NL91ABNA0417164300"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.True(t, validateIban(tt.iban), "expected %s IBAN %q to be valid", tt.country, tt.iban)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.True(t, validateIban(test.iban), "expected %s IBAN %q to be valid", test.country, test.iban)
 		})
 	}
 }
@@ -49,9 +49,9 @@ func TestValidateIban_RejectsMalformedInput(t *testing.T) {
 		{name: "only digits, no country code letters", iban: "123456789012345"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.False(t, validateIban(tt.iban))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.False(t, validateIban(test.iban))
 		})
 	}
 }
@@ -66,9 +66,9 @@ func TestValidateIban_RejectsUnknownOrMismatchedCountry(t *testing.T) {
 		{name: "DE country code with wrong length for DE (23 instead of 22)", iban: "DE893704004405320130001"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.False(t, validateIban(tt.iban))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.False(t, validateIban(test.iban))
 		})
 	}
 }
@@ -82,9 +82,9 @@ func TestValidateIban_DoesNotPanicOnBoundaryLengths(t *testing.T) {
 		{name: "exactly 34 chars (maximum)", iban: strings.Repeat("A", 34)},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.NotPanics(t, func() { validateIban(tt.iban) })
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.NotPanics(t, func() { validateIban(test.iban) })
 		})
 	}
 }

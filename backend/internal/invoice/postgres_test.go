@@ -29,8 +29,6 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// createPostgresDraft stores a draft that is complete enough to be issued and
-// removes it again when the test ends.
 func createPostgresDraft(t *testing.T, s *Service, repo *PostgresRepository) Invoice {
 	t.Helper()
 
@@ -40,8 +38,6 @@ func createPostgresDraft(t *testing.T, s *Service, repo *PostgresRepository) Inv
 	return created
 }
 
-// readCounter returns the counter the next issue of that year will build on.
-// A missing row means no invoice has been issued for the year yet.
 func readCounter(t *testing.T, pool *pgxpool.Pool, year int) int {
 	t.Helper()
 
@@ -55,9 +51,6 @@ func readCounter(t *testing.T, pool *pgxpool.Pool, year int) int {
 	return counter
 }
 
-// counterOf extracts the running number from a formatted invoice number. It
-// reads the trailing segment so it keeps working once the format gains a
-// prefix.
 func counterOf(t *testing.T, number string) int {
 	t.Helper()
 
@@ -68,8 +61,6 @@ func counterOf(t *testing.T, number string) int {
 	return counter
 }
 
-// yearOf extracts the year from a formatted invoice number, the segment in
-// front of the counter.
 func yearOf(t *testing.T, number string) int {
 	t.Helper()
 
@@ -80,10 +71,9 @@ func yearOf(t *testing.T, number string) int {
 	return year
 }
 
-// forgetCounters clears the counter rows of the given years before and after
-// the test. The table is shared with every other test in this database, so
-// year-reset tests use years far in the future and clean up behind themselves.
-func forgetCounters(t *testing.T, pool *pgxpool.Pool, years ...int) {
+// The counter table is shared by every test in this database, so tests that
+// need predictable counters claim a year of their own and clear it.
+func claimCounterYears(t *testing.T, pool *pgxpool.Pool, years ...int) {
 	t.Helper()
 
 	remove := func() {
@@ -101,7 +91,7 @@ func TestPostgresGetByID(t *testing.T) {
 
 	invoice := Invoice{
 		ID:            uuid.NewString(),
-		InvoiceNumber: ptr("INV-TEST-" + uuid.NewString()),
+		InvoiceNumber: new("INV-TEST-" + uuid.NewString()),
 		Status:        StatusDraft,
 		Sender:        Issuer{Contact: Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"}},
 		Recipient:     Contact{Name: "Recipient", Street: "S2", Zip: "222", City: "C2", Country: "DE"},
@@ -144,7 +134,7 @@ func TestPostgresCreate_IgnoresClientSuppliedInvoiceNumber(t *testing.T) {
 
 	const supplied = "INV-2026-9999"
 	draft := draftInvoice()
-	draft.InvoiceNumber = ptr(supplied)
+	draft.InvoiceNumber = new(supplied)
 
 	created, err := s.Create(draft)
 	require.NoError(t, err)
@@ -169,29 +159,30 @@ func TestPostgresIssue_ConcurrentDrawsDistinctNumbers(t *testing.T) {
 	s := NewService(repo)
 
 	const workers = 50
+	const year = 2996
+	claimCounterYears(t, pool, year)
+
 	drafts := make([]Invoice, 0, workers)
 	for range workers {
 		drafts = append(drafts, createPostgresDraft(t, s, repo))
 	}
-
-	year := time.Now().Year()
-	before := readCounter(t, pool, year)
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+	}
 
 	numbers := make([]string, workers)
 	errs := make([]error, workers)
 
 	var wg sync.WaitGroup
 	for i, draft := range drafts {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			issued, err := s.Issue(draft.ID)
 			if err != nil {
 				errs[i] = err
 				return
 			}
 			numbers[i] = *issued.InvoiceNumber
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -207,16 +198,12 @@ func TestPostgresIssue_ConcurrentDrawsDistinctNumbers(t *testing.T) {
 		counters = append(counters, counterOf(t, number))
 	}
 
-	// The counter table is shared with everything else in the test database, so
-	// the absolute values depend on earlier runs. What has to hold is that these
-	// 50 issues consumed exactly the 50 slots following the counter read above:
-	// no duplicates, no gaps.
 	slices.Sort(counters)
 	want := make([]int, 0, workers)
 	for i := 1; i <= workers; i++ {
-		want = append(want, before+i)
+		want = append(want, i)
 	}
-	assert.Equal(t, want, counters)
+	assert.Equal(t, want, counters, "the 50 issues must consume 1..50 without gaps")
 }
 
 func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
@@ -224,24 +211,25 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
 
+	const year = 2995
+	claimCounterYears(t, pool, year)
+
 	failing := createPostgresDraft(t, s, repo)
 	next := createPostgresDraft(t, s, repo)
 
-	year := time.Now().Year()
-	before := readCounter(t, pool, year)
+	issuedAt := time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+	s.now = func() time.Time { return issuedAt }
 
-	// Draw a number and then fail, the way a validation or write error after
-	// nextCounter would.
 	boom := errors.New("boom")
 	_, err := repo.Update(failing.ID, func(_ Invoice, nextCounter func(time.Time) (int, error)) (Invoice, error) {
-		if _, err := nextCounter(time.Now()); err != nil {
+		if _, err := nextCounter(issuedAt); err != nil {
 			return Invoice{}, err
 		}
 		return Invoice{}, boom
 	})
 	require.ErrorIs(t, err, boom)
 
-	assert.Equal(t, before, readCounter(t, pool, year), "a rolled back issue must give the counter value back")
+	assert.Equal(t, 0, readCounter(t, pool, year), "a rolled back issue must give the counter value back")
 
 	unchanged, err := repo.GetByID(failing.ID)
 	require.NoError(t, err)
@@ -251,7 +239,7 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 	issued, err := s.Issue(next.ID)
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)
-	assert.Equal(t, before+1, counterOf(t, *issued.InvoiceNumber), "the next issue gets the number the failed one drew")
+	assert.Equal(t, 1, counterOf(t, *issued.InvoiceNumber), "the next issue gets the number the failed one drew")
 }
 
 func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
@@ -260,7 +248,7 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 	s := NewService(repo)
 
 	const oldYear, newYear = 2999, 3000
-	forgetCounters(t, pool, oldYear, newYear)
+	claimCounterYears(t, pool, oldYear, newYear)
 
 	last := createPostgresDraft(t, s, repo)
 	first := createPostgresDraft(t, s, repo)
@@ -282,8 +270,7 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 	assert.Equal(t, "INV-2999-0001", *issuedLast.InvoiceNumber)
 	assert.Equal(t, "INV-3000-0001", *issuedFirst.InvoiceNumber, "the new year starts over at 0001")
 
-	// Read back from the database, not from the returned struct, so the stored
-	// issued_at is what gets compared against the year in the number.
+	// Read back from the database so the stored issued_at is what gets compared.
 	for _, id := range []string{last.ID, first.ID} {
 		stored, err := repo.GetByID(id)
 		require.NoError(t, err)
@@ -293,18 +280,17 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 	}
 }
 
-func TestPostgresIssue_UTCServerUsesConfiguredZoneForYear(t *testing.T) {
+func TestPostgresIssue_NewYearInConfiguredZoneWhileServerIsStillInOldYear(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
 
 	const oldYear, newYear = 2997, 2998
-	forgetCounters(t, pool, oldYear, newYear)
+	claimCounterYears(t, pool, oldYear, newYear)
 
 	draft := createPostgresDraft(t, s, repo)
 
-	// A server running in UTC at 23:30 on New Year's Eve is already 00:30 on
-	// January 1st in Europe/Berlin, and the number has to follow the zone.
+	// 23:30 UTC on New Year's Eve is already 00:30 on January 1st in Berlin.
 	s.now = func() time.Time {
 		return time.Date(oldYear, 12, 31, 23, 30, 0, 0, time.UTC)
 	}

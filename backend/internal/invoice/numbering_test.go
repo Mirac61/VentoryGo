@@ -16,9 +16,7 @@ func TestNumberingFormat(t *testing.T) {
 	assert.Equal(t, "INV-2026-10000", numbering.Format(2026, 10000), "a year with more than 9999 invoices keeps counting")
 }
 
-func TestNumberingFromEnv_Defaults(t *testing.T) {
-	// Empty rather than unset, so the test does not depend on the developer's
-	// shell and still covers the fallback.
+func TestNumberingFromEnv_EmptyValuesFallBackToDefaults(t *testing.T) {
 	t.Setenv("INVOICE_NUMBER_PREFIX", "")
 	t.Setenv("INVOICE_TIMEZONE", "")
 
@@ -38,10 +36,8 @@ func TestNumberingFromEnv_OverridesPrefixAndZone(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "RE-2026-0007", numbering.Format(2026, 7))
 
-	// Auckland is a day ahead of Berlin, which is the point of making the zone
-	// configurable at all.
 	newYear := time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
-	assert.Equal(t, 2026, newYear.In(numbering.Location).Year())
+	assert.Equal(t, 2026, newYear.In(numbering.Location).Year(), "Auckland is a day ahead of Berlin")
 }
 
 func TestNumberingFromEnv_UnknownZoneFails(t *testing.T) {
