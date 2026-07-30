@@ -101,6 +101,7 @@ Der Zugriff läuft über ein Interface, nicht direkt über die Tabelle:
 type SessionStore interface {
     Create(ctx context.Context, s Session) error
     Get(ctx context.Context, tokenHash []byte) (Session, error)
+    Touch(ctx context.Context, tokenHash []byte, expiresAt time.Time) error
     Delete(ctx context.Context, tokenHash []byte) error
     DeleteByUser(ctx context.Context, userID uuid.UUID) error
 }
@@ -111,17 +112,40 @@ nötig heraus, ist das eine zweite Implementierung und kein Umbau. `DeleteByUser
 bewusst schon im Interface — das ist "auf allen Geräten abmelden", also genau die
 Fähigkeit, wegen der die Token-Variante verworfen wurde.
 
-### Laufzeit: 7 Tage, gleitend
+Auch das gleitende Verlängern läuft über den Store und nicht per direktem SQL aus der
+Middleware, sonst wäre die Store-Wahl an einer Stelle doch wieder festgeschrieben. Die
+15-Minuten-Drosselung steckt bewusst **nicht** in `Touch`, sondern beim Aufrufer: die
+Middleware hat die Session bereits aus `Get` und ruft `Touch` nur, wenn deren `expires_at`
+mehr als 15 Minuten unter dem Maximum liegt. Damit bleibt der Store frei von
+Ablauf-Politik, und ein Aufruf von `Touch` bedeutet immer genau einen Schreibvorgang.
 
-Jede Aktivität verlängert die Session um 7 Tage. Der `UPDATE` läuft aber nur, wenn die
+### Laufzeit: 30 Tage, gleitend
+
+Jede Aktivität verlängert die Session um 30 Tage. Der `UPDATE` läuft aber nur, wenn die
 letzte Verlängerung mehr als 15 Minuten her ist. Ohne diese Regel wäre jeder Request ein
 Schreibvorgang in der Datenbank — deutlich teurer als der Lookup und der einzige Punkt, an
 dem die Store-Wahl überhaupt spürbar würde. Mit ihr bleibt es bei einem Schreibvorgang pro
 Nutzer und Viertelstunde.
 
-Abgelaufene Zeilen räumt eine Goroutine im Stundentakt weg. Für die Korrektheit ist das
-egal — der Lookup prüft `expires_at > now()`, eine abgelaufene Zeile gilt also ohnehin
-nicht mehr. Es geht nur darum, dass die Tabelle nicht ewig wächst.
+Die 30 Tage kommen aus dem Nutzungsmuster: eine Rechnungsanwendung wird nicht täglich
+benutzt, sondern schubweise, oft nur zum Monatsende. Bei einer kürzeren Frist würde
+praktisch jeder Besuch mit einem Login anfangen. Das begrenzt die Sitzungsdauer nur auf dem
+Papier — in der Praxis führt es dazu, dass Passwörter im Browser gespeichert oder kürzer
+gewählt werden. Das größere Zeitfenster für einen gestohlenen Token ist vertretbar, weil
+genau dieser Fall beherrschbar ist: Zeile löschen, Sitzung tot. Dafür liegt der Zustand auf
+dem Server.
+
+Ohne die gleitende Verlängerung würde jemand nach 30 Tagen ab Login herausfliegen, zu einem
+Zeitpunkt, der nichts mit seiner Arbeit zu tun hat — und je sporadischer die Nutzung, desto
+wahrscheinlicher trifft es genau den Besuch, bei dem etwas erledigt werden soll.
+
+Aufgeräumt wird ohne Hintergrundprozess: eine abgelaufene Zeile wird gelöscht, wenn sie
+beim Lookup angefasst wird, und beim erfolgreichen Login werden zusätzlich die abgelaufenen
+Sessions desselben Nutzers mitgelöscht. Wer wiederkommt, räumt hinter sich auf. Übrig
+bleiben Zeilen von Konten, die nie wieder auftauchen — bei diesen Datenmengen kein Grund
+für eine Goroutine, die beim Herunterfahren sauber beendet werden muss und deren Fehler
+niemand sieht. Für die Korrektheit spielt das ohnehin keine Rolle, der Lookup prüft
+`expires_at > now()`.
 
 ### Cookie-Attribute und CSRF
 
@@ -163,7 +187,7 @@ deutlich besser angreifbar, außerdem schneidet es Passwörter nach 72 Byte ab.
 
 Gespeichert wird im PHC-Format, also inklusive der verwendeten Parameter:
 
-```
+```text
 $argon2id$v=19$m=19456,t=2,p=1$<salt>$<hash>
 ```
 
@@ -188,8 +212,8 @@ der Netzwerkweg vom Browser liegt bei 20 bis 80 ms.
 **Login dauert rund 45 ms**, davon etwa 40 ms Argon2. Das ist gewollt und darf nicht
 "optimiert" werden.
 
-**Es kommt eine Migration** für die Session-Tabelle, dazu die Aufräum-Goroutine beim
-Serverstart.
+**Es kommt eine Migration** für die Session-Tabelle. Ein Hintergrundprozess wird nicht
+gebraucht.
 
 **Ein Deployment loggt niemanden aus**, weil der Zustand in Postgres liegt und nicht im
 Arbeitsspeicher.
