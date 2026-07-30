@@ -3,6 +3,7 @@ package invoice
 import (
 	"context"
 	"errors"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,12 +19,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testDSN = "postgres://invoice_user:bevvyr-9fexki-qyhQup@localhost:5432/invoice_db?sslmode=disable"
+func testDSN(t *testing.T) string {
+	t.Helper()
+
+	if testing.Short() {
+		t.Skip("skipping postgres test in short mode")
+	}
+
+	// TEST_DATABASE_URL wins because these tests delete rows.
+	for _, key := range []string{"TEST_DATABASE_URL", "DATABASE_URL"} {
+		if dsn := os.Getenv(key); dsn != "" {
+			return dsn
+		}
+	}
+	t.Fatal("TEST_DATABASE_URL or DATABASE_URL must be set, or run with -short")
+	return ""
+}
 
 func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 
-	pool, err := db.NewPool(context.Background(), testDSN)
+	pool, err := db.NewPool(context.Background(), testDSN(t))
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 	return pool
