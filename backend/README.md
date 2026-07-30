@@ -24,11 +24,12 @@ Einmalig anlegen und migrieren:
 ```bash
 docker compose exec postgres psql -U invoice_user -d invoice_db \
   -c "CREATE DATABASE invoice_test OWNER invoice_user;"
+set -a; source .env; set +a   # DSN in die Shell, go test liest keine .env
 migrate -path migrations -database "$TEST_DATABASE_URL" up
 ```
 
 ```bash
-set -a; source .env; set +a   # DSN in die Shell, go test liest keine .env
+set -a; source .env; set +a   # in einer neuen Shell erneut nötig
 go test ./...
 go test -short ./...          # überspringt alles, was Postgres braucht
 
@@ -36,8 +37,10 @@ go test -short ./...          # überspringt alles, was Postgres braucht
 ./smoke_test.sh    # Server + Postgres müssen laufen
 ```
 
-Ohne gesetztes `TEST_DATABASE_URL`/`DATABASE_URL` schlagen die Postgres-Tests fehl,
-statt still zu skippen — vergessene Konfiguration soll nicht wie ein grüner Lauf aussehen.
+`TEST_DATABASE_URL` muss auf `invoice_test` zeigen: Ist die Variable leer, fallen die
+Tests auf `DATABASE_URL` zurück und löschen in der Entwicklungs-Datenbank. Ist keine von
+beiden gesetzt, schlagen die Postgres-Tests fehl, statt still zu skippen — vergessene
+Konfiguration soll nicht wie ein grüner Lauf aussehen.
 
 ## API
 
