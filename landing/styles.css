@@ -312,14 +312,12 @@ button:focus-visible {
 }
 
 .editor-showcase {
-    border-radius: var(--radius-lg);
     overflow: hidden;
 }
 
 .editor-showcase img {
     width: 100%;
     height: auto;
-    border-radius: var(--radius-lg);
 }
 
 /* --- Feature split: BYOS + Privacy rows --- */
