@@ -31,9 +31,9 @@ func TestValidateCurrency_RejectsUnknownOrMalformedCodes(t *testing.T) {
 		{name: "currency symbol instead of code", code: "€"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.False(t, validateCurrency(tt.code))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.False(t, validateCurrency(test.code))
 		})
 	}
 }

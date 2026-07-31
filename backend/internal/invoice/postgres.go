@@ -3,7 +3,6 @@ package invoice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,14 +30,25 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
+func numberOrEmpty(n *string) string {
+	if n == nil {
+		return ""
+	}
+	return *n
+}
+
 func scanInvoice(row rowScanner) (Invoice, error) {
 	var invoice Invoice
+	var number string
 	err := row.Scan(
-		&invoice.ID, &invoice.InvoiceNumber, &invoice.Status, &invoice.CreatedAt, &invoice.IssuedAt, &invoice.PaymentDueAt, &invoice.ServiceDate, &invoice.Currency,
+		&invoice.ID, &number, &invoice.Status, &invoice.CreatedAt, &invoice.IssuedAt, &invoice.PaymentDueAt, &invoice.ServiceDate, &invoice.Currency,
 		&invoice.Sender.Name, &invoice.Sender.Street, &invoice.Sender.Zip, &invoice.Sender.City, &invoice.Sender.Country, &invoice.Sender.Email, &invoice.Sender.Phone, &invoice.Sender.TaxID, &invoice.Sender.VatID, &invoice.Sender.TaxNumber, &invoice.Sender.IBAN, &invoice.Sender.BIC, &invoice.Sender.BankName,
 		&invoice.Recipient.Name, &invoice.Recipient.Street, &invoice.Recipient.Zip, &invoice.Recipient.City, &invoice.Recipient.Country, &invoice.Recipient.Email, &invoice.Recipient.Phone, &invoice.Recipient.TaxID,
 		&invoice.VATRate, &invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes,
 	)
+	if number != "" {
+		invoice.InvoiceNumber = &number
+	}
 	return invoice, err
 }
 
@@ -198,7 +208,7 @@ func insertInvoice(ctx context.Context, tx pgx.Tx, invoice Invoice) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO invoices (`+invoiceColumns+`)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
-	`, invoice.ID, invoice.InvoiceNumber, invoice.Status, invoice.CreatedAt, invoice.IssuedAt, invoice.PaymentDueAt, invoice.ServiceDate, invoice.Currency,
+	`, invoice.ID, numberOrEmpty(invoice.InvoiceNumber), invoice.Status, invoice.CreatedAt, invoice.IssuedAt, invoice.PaymentDueAt, invoice.ServiceDate, invoice.Currency,
 		invoice.Sender.Name, invoice.Sender.Street, invoice.Sender.Zip, invoice.Sender.City, invoice.Sender.Country, invoice.Sender.Email, invoice.Sender.Phone, invoice.Sender.TaxID, invoice.Sender.VatID, invoice.Sender.TaxNumber, invoice.Sender.IBAN, invoice.Sender.BIC, invoice.Sender.BankName,
 		invoice.Recipient.Name, invoice.Recipient.Street, invoice.Recipient.Zip, invoice.Recipient.City, invoice.Recipient.Country, invoice.Recipient.Email, invoice.Recipient.Phone, invoice.Recipient.TaxID,
 		invoice.VATRate, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal, invoice.Notes)
@@ -218,7 +228,7 @@ func (r *PostgresRepository) Delete(id string) error {
 	return nil
 }
 
-func nextInvoiceNumber(ctx context.Context, tx pgx.Tx, now time.Time) (string, error) {
+func nextInvoiceCounter(ctx context.Context, tx pgx.Tx, now time.Time) (int, error) {
 	var counter int
 	err := tx.QueryRow(ctx, `
 		INSERT INTO invoice_counters (year, counter) VALUES ($1, 1)
@@ -226,9 +236,9 @@ func nextInvoiceNumber(ctx context.Context, tx pgx.Tx, now time.Time) (string, e
 		RETURNING counter
 	`, now.Year()).Scan(&counter)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	return fmt.Sprintf("%d-%04d", now.Year(), counter), nil
+	return counter, nil
 }
 
 func (r *PostgresRepository) Update(id string, fn UpdateFunc) (Invoice, error) {
@@ -252,11 +262,11 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc) (Invoice, error) {
 		return Invoice{}, err
 	}
 
-	nextNumber := func() (string, error) {
-		return nextInvoiceNumber(ctx, tx, time.Now())
+	nextCounter := func(now time.Time) (int, error) {
+		return nextInvoiceCounter(ctx, tx, now)
 	}
 
-	updated, err := fn(existing, nextNumber)
+	updated, err := fn(existing, nextCounter)
 	if err != nil {
 		return Invoice{}, err
 	}
@@ -269,7 +279,7 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc) (Invoice, error) {
 			recipient_name = $20, recipient_street = $21, recipient_zip = $22, recipient_city = $23, recipient_country = $24, recipient_email = $25, recipient_phone = $26, recipient_tax_id = $27,
 			vat_rate = $28, net_total = $29, vat_amount = $30, gross_total = $31, notes = $32
 		WHERE id = $33
-	`, updated.InvoiceNumber, updated.Status, updated.IssuedAt, updated.PaymentDueAt, updated.ServiceDate, updated.Currency,
+	`, numberOrEmpty(updated.InvoiceNumber), updated.Status, updated.IssuedAt, updated.PaymentDueAt, updated.ServiceDate, updated.Currency,
 		updated.Sender.Name, updated.Sender.Street, updated.Sender.Zip, updated.Sender.City, updated.Sender.Country, updated.Sender.Email, updated.Sender.Phone, updated.Sender.TaxID, updated.Sender.VatID, updated.Sender.TaxNumber, updated.Sender.IBAN, updated.Sender.BIC, updated.Sender.BankName,
 		updated.Recipient.Name, updated.Recipient.Street, updated.Recipient.Zip, updated.Recipient.City, updated.Recipient.Country, updated.Recipient.Email, updated.Recipient.Phone, updated.Recipient.TaxID,
 		updated.VATRate, updated.NetTotal, updated.VATAmount, updated.GrossTotal, updated.Notes, updated.ID)

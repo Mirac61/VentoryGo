@@ -21,9 +21,9 @@ func TestRoundedVAT(t *testing.T) {
 		{name: "zero net", net: 0, ratePercent: 19, want: 0},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, RoundedVAT(tt.net, tt.ratePercent))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, RoundedVAT(test.net, test.ratePercent))
 		})
 	}
 }

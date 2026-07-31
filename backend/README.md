@@ -13,13 +13,34 @@ go run .
 
 Server läuft auf `:8080`.
 
+Sonderzeichen im Passwort müssen in den `*_URL`-Variablen prozent-kodiert sein
+(`@` → `%40`, `?` → `%3F`, …), sonst scheitert schon das Parsen des DSN.
+
 ## Tests
 
+Die Postgres-Tests löschen Zeilen und laufen deshalb gegen eine eigene Datenbank.
+Einmalig anlegen und migrieren:
+
 ```bash
+docker compose exec postgres psql -U invoice_user -d invoice_db \
+  -c "CREATE DATABASE invoice_test OWNER invoice_user;"
+set -a; source .env; set +a   # DSN in die Shell, go test liest keine .env
+migrate -path migrations -database "$TEST_DATABASE_URL" up
+```
+
+```bash
+set -a; source .env; set +a   # in einer neuen Shell erneut nötig
 go test ./...
+go test -short ./...          # überspringt alles, was Postgres braucht
+
 ./test-api.sh      # Server muss laufen
 ./smoke_test.sh    # Server + Postgres müssen laufen
 ```
+
+`TEST_DATABASE_URL` muss auf `invoice_test` zeigen: Ist die Variable leer, fallen die
+Tests auf `DATABASE_URL` zurück und löschen in der Entwicklungs-Datenbank. Ist keine von
+beiden gesetzt, schlagen die Postgres-Tests fehl, statt still zu skippen — vergessene
+Konfiguration soll nicht wie ein grüner Lauf aussehen.
 
 ## API
 

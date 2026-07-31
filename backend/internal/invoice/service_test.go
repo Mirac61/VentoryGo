@@ -13,8 +13,10 @@ func newTestService() *Service {
 	return NewService(NewRepository())
 }
 
-func seedDraftInvoice(t *testing.T, s *Service) Invoice {
-	invoice := Invoice{
+// draftInvoice satisfies every requirement for issuing, so tests can vary
+// single fields without repeating the whole struct.
+func draftInvoice() Invoice {
+	return Invoice{
 		Status:       StatusDraft,
 		ServiceDate:  time.Now().Add(-24 * time.Hour),
 		PaymentDueAt: time.Now().Add(14 * 24 * time.Hour),
@@ -29,7 +31,21 @@ func seedDraftInvoice(t *testing.T, s *Service) Invoice {
 		},
 		VATRate: 0.19,
 	}
-	created, err := s.Create(invoice)
+}
+
+func seedDraftInvoice(t *testing.T, s *Service) Invoice {
+	created, err := s.Create(draftInvoice())
+	require.NoError(t, err)
+	return created
+}
+
+func seedIssuedInvoice(t *testing.T, repo *Repository) Invoice {
+	created, err := repo.Create(Invoice{
+		ID:      "issued-1",
+		Status:  StatusIssued,
+		VATRate: 0.19,
+		Items:   []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
+	})
 	require.NoError(t, err)
 	return created
 }
@@ -75,18 +91,18 @@ func TestPartialUpdate_RecalculatesTotals(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			s := newTestService()
 			created := seedDraftInvoice(t, s)
 
-			patch := InvoicePatch{Items: &tt.items, VATRate: &tt.vatRate}
+			patch := InvoicePatch{Items: &test.items, VATRate: &test.vatRate}
 			updated, err := s.PartialUpdate(created.ID, patch)
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantNet, updated.NetTotal)
-			assert.Equal(t, tt.wantVAT, updated.VATAmount)
-			assert.Equal(t, tt.wantGross, updated.GrossTotal)
+			assert.Equal(t, test.wantNet, updated.NetTotal)
+			assert.Equal(t, test.wantVAT, updated.VATAmount)
+			assert.Equal(t, test.wantGross, updated.GrossTotal)
 		})
 	}
 }
@@ -100,32 +116,72 @@ func TestPartialUpdate_UnknownID_ReturnsNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
+func TestCreate_DraftHasNoInvoiceNumber(t *testing.T) {
+	s := newTestService()
+
+	created, err := s.Create(draftInvoice())
+
+	require.NoError(t, err)
+	assert.Equal(t, StatusDraft, created.Status)
+	assert.Nil(t, created.InvoiceNumber, "a draft must not carry a number before it is issued")
+}
+
+func TestCreate_IgnoresClientSuppliedInvoiceNumber(t *testing.T) {
+	s := newTestService()
+
+	draft := draftInvoice()
+	draft.InvoiceNumber = new("INV-2026-0001")
+
+	created, err := s.Create(draft)
+
+	require.NoError(t, err)
+	assert.Nil(t, created.InvoiceNumber, "the number is server owned and must be discarded on create")
+}
+
 func TestUpdate_PreservesServerManagedFields(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
 	tampered := created
 	tampered.Status = StatusPaid
-	tampered.InvoiceNumber = "HACKED-001"
+	tampered.InvoiceNumber = new("HACKED-001")
 	tampered.CreatedAt = time.Time{}
 
 	updated, err := s.Update(created.ID, tampered)
 
 	require.NoError(t, err)
 	assert.Equal(t, created.Status, updated.Status)
-	assert.Equal(t, created.InvoiceNumber, updated.InvoiceNumber)
+	assert.Nil(t, updated.InvoiceNumber, "a PUT must not be able to set the number on a draft")
 	assert.Equal(t, created.CreatedAt, updated.CreatedAt)
 }
 
-func seedIssuedInvoice(t *testing.T, repo *Repository) Invoice {
-	created, err := repo.Create(Invoice{
-		ID:      "issued-1",
-		Status:  StatusIssued,
-		VATRate: 0.19,
-		Items:   []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
+func TestUpdate_IssuedNumberSurvivesTampering(t *testing.T) {
+	repo := NewRepository()
+	s := NewService(repo)
+	created := seedDraftInvoice(t, s)
+
+	issued, err := s.Issue(created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, issued.InvoiceNumber)
+
+	// Drop back to draft behind the service's back, so the number is preserved
+	// for its own sake and not just because the status check rejects the call.
+	stored, err := repo.GetByID(issued.ID)
+	require.NoError(t, err)
+	stored.Status = StatusDraft
+	_, err = repo.Update(stored.ID, func(Invoice, func(time.Time) (int, error)) (Invoice, error) {
+		return stored, nil
 	})
 	require.NoError(t, err)
-	return created
+
+	tampered := stored
+	tampered.InvoiceNumber = new("HACKED-001")
+
+	updated, err := s.Update(stored.ID, tampered)
+
+	require.NoError(t, err)
+	require.NotNil(t, updated.InvoiceNumber)
+	assert.Equal(t, *issued.InvoiceNumber, *updated.InvoiceNumber)
 }
 
 func TestUpdate_NonDraft_ReturnsNotUpdatable(t *testing.T) {
@@ -213,7 +269,8 @@ func TestIssue_Draft_SetsNumberAndTimestamp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, StatusIssued, issued.Status)
 	assert.False(t, issued.IssuedAt.IsZero())
-	assert.Regexp(t, `^\d{4}-\d{4}$`, issued.InvoiceNumber)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Regexp(t, `\d{4}-\d{4}$`, *issued.InvoiceNumber)
 }
 
 func TestIssue_AssignsSequentialNumbers(t *testing.T) {
@@ -226,8 +283,10 @@ func TestIssue_AssignsSequentialNumbers(t *testing.T) {
 	b, err := s.Issue(second.ID)
 	require.NoError(t, err)
 
-	assert.Regexp(t, `^\d{4}-0001$`, a.InvoiceNumber)
-	assert.Regexp(t, `^\d{4}-0002$`, b.InvoiceNumber)
+	require.NotNil(t, a.InvoiceNumber)
+	require.NotNil(t, b.InvoiceNumber)
+	assert.Regexp(t, `\d{4}-0001$`, *a.InvoiceNumber)
+	assert.Regexp(t, `\d{4}-0002$`, *b.InvoiceNumber)
 }
 
 func TestIssue_AlreadyIssued_ReturnsInvalidTransition(t *testing.T) {
@@ -248,8 +307,13 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 		wantMissing []string
 	}{
 		{
-			name:        "missing everything required for issue",
-			mutate:      func(inv *Invoice) { inv.ServiceDate = time.Time{}; inv.Sender.IBAN = ""; inv.Sender.VatID = ""; inv.Sender.TaxNumber = "" },
+			name: "missing everything required for issue",
+			mutate: func(inv *Invoice) {
+				inv.ServiceDate = time.Time{}
+				inv.Sender.IBAN = ""
+				inv.Sender.VatID = ""
+				inv.Sender.TaxNumber = ""
+			},
 			wantMissing: []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"},
 		},
 		{
@@ -279,19 +343,19 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			s := newTestService()
 			created := seedDraftInvoice(t, s)
 
 			replacement := created
-			tt.mutate(&replacement)
+			test.mutate(&replacement)
 			_, err := s.Update(created.ID, replacement)
 			require.NoError(t, err)
 
 			issued, err := s.Issue(created.ID)
 
-			if tt.wantMissing == nil {
+			if test.wantMissing == nil {
 				assert.NoError(t, err)
 				assert.Equal(t, StatusIssued, issued.Status)
 				return
@@ -299,7 +363,7 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 
 			var mfe *MissingFieldsError
 			require.True(t, errors.As(err, &mfe), "expected *MissingFieldsError, got %T: %v", err, err)
-			assert.ElementsMatch(t, tt.wantMissing, mfe.Fields)
+			assert.ElementsMatch(t, test.wantMissing, mfe.Fields)
 		})
 	}
 }
@@ -386,14 +450,19 @@ func TestIssue_ThenUpdate_ReturnsNotUpdatable(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotUpdatable)
 }
 
-func TestNextInvoiceNumber_ResetsOnNewYear(t *testing.T) {
-	repo := NewRepository()
+func TestIssue_NumberAndIssuedAtAgreeOnTheYear(t *testing.T) {
+	s := newTestService()
+	created := seedDraftInvoice(t, s)
 
-	first, err := repo.nextInvoiceNumber(time.Date(2025, 12, 31, 23, 0, 0, 0, time.UTC))
-	require.NoError(t, err)
-	assert.Equal(t, "2025-0001", first)
+	// 23:59:59 UTC on New Year's Eve is already the next year in Berlin.
+	s.now = func() time.Time {
+		return time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
+	}
 
-	second, err := repo.nextInvoiceNumber(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	issued, err := s.Issue(created.ID)
+
 	require.NoError(t, err)
-	assert.Equal(t, "2026-0001", second)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Equal(t, "INV-2026-0001", *issued.InvoiceNumber)
+	assert.Equal(t, 2026, issued.IssuedAt.Year())
 }
