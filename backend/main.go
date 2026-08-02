@@ -5,8 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/Mirac61/Invoice/backend/internal/db"
-	"github.com/Mirac61/Invoice/backend/internal/invoice"
+	"github.com/Mirac61/VentoryGo/backend/internal/auth"
+	"github.com/Mirac61/VentoryGo/backend/internal/db"
+	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -38,6 +39,9 @@ func main() {
 	repo := invoice.NewPostgresRepository(pool)
 	service := invoice.NewServiceWithNumbering(repo, numbering)
 	handler := invoice.NewHandler(service)
+	authRepo := auth.NewPostgresRepository(pool)
+	authService := auth.NewService(authRepo)
+	authHandler := auth.NewHandler(authService)
 
 	r.POST("/api/invoices", handler.Create)
 	r.POST("/api/invoices/:id/issue", handler.Issue)
@@ -46,6 +50,7 @@ func main() {
 	r.DELETE("/api/invoices/:id", handler.Delete)
 	r.PUT("/api/invoices/:id", handler.Update)
 	r.PATCH("/api/invoices/:id", handler.PartialUpdate)
+	r.POST("/api/auth/register", authHandler.Register)
 
 	r.Run(":8080")
 }
