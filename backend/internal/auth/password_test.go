@@ -51,6 +51,9 @@ func TestVerifyPasswordRejectsMalformedHash(t *testing.T) {
 		"kein-phc-string",
 		"$bcrypt$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",
 		"$argon2id$v=19$m=19456,t=2,p=1$!!!$aGFzaA",
+		"$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$",
+		"$argon2id$v=19$m=19456,t=2,p=1$$aGFzaA",
+		"$argon2id$v=19$m=19456,t=2,p=1$$",
 	} {
 		assert.ErrorIs(t, VerifyPassword(hash, "egal"), ErrInvalidHash, "hash=%q", hash)
 	}

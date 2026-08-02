@@ -54,6 +54,9 @@ func VerifyPassword(encodedHash, password string) error {
 	if err != nil {
 		return ErrInvalidHash
 	}
+	if len(salt) == 0 || len(hash) == 0 {
+		return ErrInvalidHash
+	}
 	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash)))
 	if subtle.ConstantTimeCompare(hash, computed) == 1 {
 		return nil
