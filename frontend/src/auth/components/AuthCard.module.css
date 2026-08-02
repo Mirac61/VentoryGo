@@ -1,0 +1,143 @@
+.page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background: var(--color-bg);
+    box-sizing: border-box;
+}
+
+.card {
+    width: 100%;
+    max-width: 1363px;
+    aspect-ratio: 1363 / 686;
+    background: var(--color-field-bg);
+    border-radius: var(--radius-lg);
+    padding: 56px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* --- Left column: brand + heading --- */
+
+.left {
+    display: flex;
+    flex-direction: column;
+    gap: 96px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.logo {
+    height: 66px;
+    width: auto;
+}
+
+.brandMark {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 55%, #e8a25f 100%);
+    transform: rotate(45deg);
+    flex-shrink: 0;
+}
+
+.brandName {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.heading {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.title {
+    font-family: var(--font-display);
+    margin: 0;
+    font-size: 40px;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.subtitle {
+    font-family: var(--font-sans);
+    margin: 0;
+    font-size: 18px;
+    color: var(--color-text-muted);
+}
+
+/* --- Right column: error bar + form --- */
+
+.right {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.errorBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--color-error);
+    color: #fff;
+    border-radius: var(--radius-md);
+    padding: 12px 18px;
+    margin-bottom: 24px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.errorBar svg {
+    flex-shrink: 0;
+}
+
+/* --- Responsive fallback: stack columns below ~860px --- */
+
+@media (max-width: 860px) {
+    .card {
+        aspect-ratio: unset;
+        grid-template-columns: 1fr;
+        gap: 40px;
+        padding: 40px 28px;
+    }
+
+    .left {
+        gap: 32px;
+    }
+
+    .right {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .title {
+        font-size: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        border-radius: 16px;
+        padding: 28px 20px;
+    }
+
+    .title {
+        font-size: 28px;
+    }
+}
