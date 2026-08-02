@@ -21,6 +21,21 @@ services:
       retries: 10
       start_period: 10s
 
+  # One-Shot vor dem Backend: ohne Schema antwortet die API mit 500 statt zu scheitern.
+  migrate:
+    profiles: ["docker"]
+    image: migrate/migrate:v4.19.1
+    restart: "no"
+    volumes:
+      - ./backend/migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+      - "up"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # Im Dev laeuft das Backend auf dem Host (`go run .`) gegen localhost:5432 --
   # kein Image-Rebuild pro Aenderung, Debugger haengt sich nativ dran.
   # Ganzen Stack in Docker: `docker compose --profile docker up -d`.
@@ -34,11 +49,14 @@ services:
       # Gewinnt gegen env_file: im Container ist die DB nicht localhost, sondern
       # der Service-Name. Passwort kommt aus ../.env, nicht aus diesem File.
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      GIN_MODE: release
     ports:
       - "8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
