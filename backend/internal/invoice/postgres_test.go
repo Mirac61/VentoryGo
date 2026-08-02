@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Mirac61/Invoice/backend/internal/db"
+	"github.com/Mirac61/VentoryGo/backend/internal/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
