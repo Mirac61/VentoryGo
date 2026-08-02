@@ -13,6 +13,9 @@ go run .
 
 Server läuft auf `:8080`.
 
+Ganzer Stack in Docker: `docker compose --profile docker up`. Dort migriert ein eigener
+`migrate`-Service vor dem Backend-Start, der `migrate`-Aufruf von Hand entfällt.
+
 Sonderzeichen im Passwort müssen in den `*_URL`-Variablen prozent-kodiert sein
 (`@` → `%40`, `?` → `%3F`, …), sonst scheitert schon das Parsen des DSN.
 
