@@ -2,11 +2,81 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestLoginStoresOnlyTheTokenHash(t *testing.T) {
+	store := &fakeSessionStore{}
+	service := NewService(&fakeRepo{}, store)
+
+	registered, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	user, token, err := service.Login(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	assert.Equal(t, registered.ID, user.ID)
+	require.NotEmpty(t, token)
+	require.Len(t, store.created, 1)
+
+	session := store.created[0]
+	want := sha256.Sum256([]byte(token))
+	assert.Equal(t, want[:], session.TokenHash, "in der DB darf nur der Hash liegen")
+	assert.NotContains(t, string(session.TokenHash), token)
+	assert.Equal(t, registered.ID, session.UserID.String())
+	assert.WithinDuration(t, session.CreatedAt.Add(sessionTTL), session.ExpiresAt, time.Second)
+}
+
+func TestLoginHidesWhetherAccountExists(t *testing.T) {
+	service := NewService(&fakeRepo{}, &fakeSessionStore{})
+	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	for _, tc := range []struct{ name, email, password string }{
+		{"falsches Passwort", "max@example.com", "falsch aber lang"},
+		{"unbekannte Mail", "nobody@example.com", "correct horse battery"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, token, err := service.Login(context.Background(), tc.email, tc.password)
+
+			require.ErrorIs(t, err, ErrInvalidCredentials)
+			assert.NotErrorIs(t, err, ErrUserNotFound, "ErrUserNotFound darf den Service nicht verlassen")
+			assert.Empty(t, token)
+		})
+	}
+}
+
+func TestLoginNormalizesEmail(t *testing.T) {
+	service := NewService(&fakeRepo{}, &fakeSessionStore{})
+	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	for _, in := range []string{"  Max@Example.COM  ", "MAX@EXAMPLE.COM", "\tmax@example.com\n"} {
+		_, token, err := service.Login(context.Background(), in, "correct horse battery")
+		require.NoError(t, err, "Login fuer %q", in)
+		assert.NotEmpty(t, token)
+	}
+}
+
+func TestLoginIssuesFreshTokenPerCall(t *testing.T) {
+	store := &fakeSessionStore{}
+	service := NewService(&fakeRepo{}, store)
+	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	_, first, err := service.Login(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+	_, second, err := service.Login(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first, second)
+	assert.Len(t, store.created, 2, "paralleles Anmelden darf bestehende Sessions nicht ersetzen")
+}
 
 func TestRegisterNormalizesEmail(t *testing.T) {
 	for _, tc := range []struct {
@@ -18,7 +88,7 @@ func TestRegisterNormalizesEmail(t *testing.T) {
 		{"\tMAX@EXAMPLE.COM\n", "max@example.com"},
 	} {
 		repo := &fakeRepo{}
-		user, err := NewService(repo).Register(context.Background(), tc.in, "correct horse battery")
+		user, err := NewService(repo, nil).Register(context.Background(), tc.in, "correct horse battery")
 		require.NoError(t, err)
 
 		assert.Equal(t, tc.want, user.Email, "Rueckgabe fuer %q", tc.in)
