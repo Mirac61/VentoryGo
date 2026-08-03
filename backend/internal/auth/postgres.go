@@ -91,8 +91,8 @@ func (r *PostgresSessionStore) Delete(ctx context.Context, tokenHash []byte) err
 	return err
 }
 
-func (r *PostgresSessionStore) DeleteByUser(ctx context.Context, userID uuid.UUID) error {
-	const query = `Delete FROM sessions WHERE user_id=$1`
+func (r *PostgresSessionStore) DeleteExpiredByUser(ctx context.Context, userID uuid.UUID) error {
+	const query = `DELETE FROM sessions WHERE user_id = $1 AND expires_at <= now()`
 	_, err := r.pool.Exec(ctx, query, userID)
 	return err
 }

@@ -39,8 +39,9 @@ func (f *fakeRepo) FindByEmail(_ context.Context, email string) (User, error) {
 }
 
 type fakeSessionStore struct {
-	created []Session
-	err     error
+	created        []Session
+	expiredCleared []uuid.UUID
+	err            error
 }
 
 func (f *fakeSessionStore) Create(_ context.Context, s Session) error {
@@ -59,7 +60,10 @@ func (f *fakeSessionStore) Touch(context.Context, []byte, time.Time) error { ret
 
 func (f *fakeSessionStore) Delete(context.Context, []byte) error { return nil }
 
-func (f *fakeSessionStore) DeleteByUser(context.Context, uuid.UUID) error { return nil }
+func (f *fakeSessionStore) DeleteExpiredByUser(_ context.Context, userID uuid.UUID) error {
+	f.expiredCleared = append(f.expiredCleared, userID)
+	return nil
+}
 
 // Legt einen Service mit registriertem Nutzer an und gibt ihn samt Store zurueck.
 func serviceWithUser(t *testing.T, email, password string) (*Service, *fakeSessionStore) {
@@ -183,7 +187,7 @@ func TestLoginSetsSessionCookieAndKeepsTokenOutOfBody(t *testing.T) {
 	assert.True(t, cookie.Secure)
 	assert.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
 	assert.Equal(t, "/", cookie.Path)
-	assert.Equal(t, int(sessionTTL.Seconds()), cookie.MaxAge)
+	assert.Equal(t, int(defaultSessionTTL.Seconds()), cookie.MaxAge)
 
 	// Das Klartext-Token gehoert ausschliesslich ins Cookie.
 	assert.NotContains(t, rec.Body.String(), cookie.Value)

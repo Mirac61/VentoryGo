@@ -33,6 +33,11 @@ func main() {
 		log.Fatalf("failed to read cookie config: %v", err)
 	}
 
+	sessionTTL, err := auth.SessionTTLFromEnv()
+	if err != nil {
+		log.Fatalf("failed to read session config: %v", err)
+	}
+
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
@@ -46,7 +51,8 @@ func main() {
 	service := invoice.NewServiceWithNumbering(repo, numbering)
 	handler := invoice.NewHandler(service)
 	authRepo := auth.NewPostgresRepository(pool)
-	authService := auth.NewService(authRepo, auth.NewPostgresSessionStore(pool))
+	sessionStore := auth.NewPostgresSessionStore(pool)
+	authService := auth.NewServiceWithSessionTTL(authRepo, sessionStore, sessionTTL)
 	authHandler := auth.NewHandler(authService, cookieSecure)
 
 	r.POST("/api/invoices", handler.Create)
@@ -58,6 +64,7 @@ func main() {
 	r.PATCH("/api/invoices/:id", handler.PartialUpdate)
 	r.POST("/api/auth/register", authHandler.Register)
 	r.POST("/api/auth/login", authHandler.Login)
+	r.GET("/api/auth", auth.RequireAuth(sessionStore, sessionTTL))
 
 	r.Run(":8080")
 }

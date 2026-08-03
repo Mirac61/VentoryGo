@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +30,59 @@ func TestLoginStoresOnlyTheTokenHash(t *testing.T) {
 	assert.Equal(t, want[:], session.TokenHash, "in der DB darf nur der Hash liegen")
 	assert.NotContains(t, string(session.TokenHash), token)
 	assert.Equal(t, registered.ID, session.UserID.String())
-	assert.WithinDuration(t, session.CreatedAt.Add(sessionTTL), session.ExpiresAt, time.Second)
+	assert.WithinDuration(t, session.CreatedAt.Add(defaultSessionTTL), session.ExpiresAt, time.Second)
+}
+
+func TestSessionTTLFromEnv(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		value   string
+		want    time.Duration
+		wantErr bool
+	}{
+		{name: "nicht gesetzt", want: defaultSessionTTL},
+		{name: "kurz fuer Tests", value: "1s", want: time.Second},
+		{name: "sieben Tage", value: "168h", want: 168 * time.Hour},
+		{name: "kaputt", value: "30 Tage", wantErr: true},
+		{name: "null", value: "0s", wantErr: true},
+		{name: "negativ", value: "-1h", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SESSION_TTL", tc.value)
+
+			ttl, err := SessionTTLFromEnv()
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, ttl)
+		})
+	}
+}
+
+func TestLoginUsesConfiguredSessionTTL(t *testing.T) {
+	store := &fakeSessionStore{}
+	service := NewServiceWithSessionTTL(&fakeRepo{}, store, time.Second)
+
+	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+	_, _, err = service.Login(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	require.Len(t, store.created, 1)
+	session := store.created[0]
+	assert.WithinDuration(t, session.CreatedAt.Add(time.Second), session.ExpiresAt, time.Millisecond*100)
+}
+
+func TestLoginClearsExpiredSessionsOfTheSameUser(t *testing.T) {
+	service, store := serviceWithUser(t, "max@example.com", "correct horse battery")
+
+	user, _, err := service.Login(context.Background(), "max@example.com", "correct horse battery")
+	require.NoError(t, err)
+
+	assert.Equal(t, []uuid.UUID{uuid.MustParse(user.ID)}, store.expiredCleared)
 }
 
 func TestLoginHidesWhetherAccountExists(t *testing.T) {

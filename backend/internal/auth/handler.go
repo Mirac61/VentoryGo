@@ -89,6 +89,6 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("session", token, int(sessionTTL.Seconds()), "/", "", h.cookieSecure, true)
+	c.SetCookie("session", token, int(h.service.sessionTTL.Seconds()), "/", "", h.cookieSecure, true)
 	c.Status(http.StatusNoContent)
 }

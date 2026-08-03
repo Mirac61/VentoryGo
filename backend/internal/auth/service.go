@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
-const sessionTTL = 30 * 24 * time.Hour
+const defaultSessionTTL = 30 * 24 * time.Hour
+
+func SessionTTLFromEnv() (time.Duration, error) {
+	value := os.Getenv("SESSION_TTL")
+	if value == "" {
+		return defaultSessionTTL, nil
+	}
+
+	ttl, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid SESSION_TTL %q: %w", value, err)
+	}
+	if ttl <= 0 {
+		return 0, fmt.Errorf("invalid SESSION_TTL %q: muss positiv sein", value)
+	}
+	return ttl, nil
+}
 
 var dummyHash = sync.OnceValue(func() string {
 	hash, _ := HashPassword("dummy")
@@ -24,12 +41,17 @@ type userRepository interface {
 }
 
 type Service struct {
-	repo     userRepository
-	sessions SessionStore
+	repo       userRepository
+	sessions   SessionStore
+	sessionTTL time.Duration
 }
 
 func NewService(repo userRepository, sessions SessionStore) *Service {
-	return &Service{repo: repo, sessions: sessions}
+	return NewServiceWithSessionTTL(repo, sessions, defaultSessionTTL)
+}
+
+func NewServiceWithSessionTTL(repo userRepository, sessions SessionStore, ttl time.Duration) *Service {
+	return &Service{repo: repo, sessions: sessions, sessionTTL: ttl}
 }
 
 func normalizeEmail(email string) string {
@@ -77,6 +99,8 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	if err != nil {
 		return User{}, "", fmt.Errorf("parse user id: %w", err)
 	}
+	_ = s.sessions.DeleteExpiredByUser(ctx, userID)
+
 	token, tokenHash, err := newSessionToken()
 	if err != nil {
 		return User{}, "", fmt.Errorf("new session token: %w", err)
@@ -86,7 +110,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 		TokenHash: tokenHash,
 		UserID:    userID,
 		CreatedAt: now,
-		ExpiresAt: now.Add(sessionTTL),
+		ExpiresAt: now.Add(s.sessionTTL),
 	}
 	if err := s.sessions.Create(ctx, session); err != nil {
 		return User{}, "", fmt.Errorf("create session: %w", err)

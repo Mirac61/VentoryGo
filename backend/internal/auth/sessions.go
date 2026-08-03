@@ -22,7 +22,7 @@ type SessionStore interface {
 	Get(ctx context.Context, tokenHash []byte) (Session, error)
 	Touch(ctx context.Context, tokenHash []byte, expiresAt time.Time) error
 	Delete(ctx context.Context, tokenHash []byte) error
-	DeleteByUser(ctx context.Context, userID uuid.UUID) error
+	DeleteExpiredByUser(ctx context.Context, userID uuid.UUID) error
 }
 
 func newSessionToken() (string, []byte, error) {

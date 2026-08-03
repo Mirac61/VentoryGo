@@ -232,22 +232,26 @@ func TestSessionStoreDeleteEndsOnlyOneSession(t *testing.T) {
 	assert.NoError(t, err, "die zweite Session desselben Users muss bestehen bleiben")
 }
 
-func TestSessionStoreDeleteByUserSparesOtherUsers(t *testing.T) {
+func TestSessionStoreDeleteExpiredByUserSparesValidAndForeignSessions(t *testing.T) {
 	pool := testPool(t)
 	store := NewPostgresSessionStore(pool)
 
-	expiresAt := time.Now().UTC().Add(time.Hour)
+	valid := time.Now().UTC().Add(time.Hour)
+	expired := time.Now().UTC().Add(-time.Hour)
+
 	mine := createSessionUser(t, pool, "mine")
-	createTestSession(t, store, mine, expiresAt)
-	createTestSession(t, store, mine, expiresAt)
+	createTestSession(t, store, mine, expired)
+	myValidHash := createTestSession(t, store, mine, valid)
 
 	other := createSessionUser(t, pool, "other")
-	otherHash := createTestSession(t, store, other, expiresAt)
+	createTestSession(t, store, other, expired)
 
-	require.NoError(t, store.DeleteByUser(context.Background(), mine))
+	require.NoError(t, store.DeleteExpiredByUser(context.Background(), mine))
 
-	assert.Zero(t, countSessions(t, pool, mine))
+	assert.Equal(t, 1, countSessions(t, pool, mine), "nur die abgelaufene eigene Session faellt weg")
 
-	_, err := store.Get(context.Background(), otherHash)
-	assert.NoError(t, err, "fremde Sessions duerfen nicht mitgeloescht werden")
+	_, err := store.Get(context.Background(), myValidHash)
+	assert.NoError(t, err, "die gueltige eigene Session muss bestehen bleiben")
+
+	assert.Equal(t, 1, countSessions(t, pool, other), "fremde Sessions duerfen nicht mitgeloescht werden")
 }
