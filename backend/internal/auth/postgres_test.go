@@ -97,3 +97,157 @@ func TestPostgresCreateRejectsDuplicateEmailIgnoringCase(t *testing.T) {
 
 	assert.ErrorIs(t, createTestUser(t, repo, pool, second), ErrEmailTaken)
 }
+
+func TestPostgresFindByEmailIgnoresCase(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+
+	email := testEmail("findme")
+	user := newTestUser(t, strings.ToUpper(email))
+	require.NoError(t, createTestUser(t, repo, pool, user))
+
+	found, err := repo.FindByEmail(context.Background(), email)
+	require.NoError(t, err)
+
+	assert.Equal(t, user.ID, found.ID)
+	assert.Equal(t, user.PasswordHash, found.PasswordHash)
+	assert.WithinDuration(t, user.CreatedAt, found.CreatedAt, time.Second)
+}
+
+func TestPostgresFindByEmailReportsUnknownEmail(t *testing.T) {
+	repo := NewPostgresRepository(testPool(t))
+
+	_, err := repo.FindByEmail(context.Background(), testEmail("nobody"))
+	assert.ErrorIs(t, err, ErrUserNotFound)
+}
+
+// Sessions haengen per ON DELETE CASCADE am User, das Cleanup aus createTestUser
+// raeumt sie also mit ab.
+func createSessionUser(t *testing.T, pool *pgxpool.Pool, local string) uuid.UUID {
+	t.Helper()
+
+	user := newTestUser(t, testEmail(local))
+	require.NoError(t, createTestUser(t, NewPostgresRepository(pool), pool, user))
+
+	id, err := uuid.Parse(user.ID)
+	require.NoError(t, err)
+	return id
+}
+
+func createTestSession(t *testing.T, store *PostgresSessionStore, userID uuid.UUID, expiresAt time.Time) []byte {
+	t.Helper()
+
+	_, hash, err := newSessionToken()
+	require.NoError(t, err)
+
+	require.NoError(t, store.Create(context.Background(), Session{
+		TokenHash: hash,
+		UserID:    userID,
+		CreatedAt: time.Now().UTC(),
+		ExpiresAt: expiresAt,
+	}))
+	return hash
+}
+
+func countSessions(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID) int {
+	t.Helper()
+
+	var count int
+	require.NoError(t, pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM sessions WHERE user_id = $1`, userID).Scan(&count))
+	return count
+}
+
+func TestSessionStoreCreateAndGetRoundtrip(t *testing.T) {
+	pool := testPool(t)
+	store := NewPostgresSessionStore(pool)
+
+	userID := createSessionUser(t, pool, "roundtrip")
+	expiresAt := time.Now().UTC().Add(30 * 24 * time.Hour)
+	hash := createTestSession(t, store, userID, expiresAt)
+
+	got, err := store.Get(context.Background(), hash)
+	require.NoError(t, err)
+
+	assert.Equal(t, userID, got.UserID)
+	assert.Equal(t, hash, got.TokenHash)
+	assert.WithinDuration(t, expiresAt, got.ExpiresAt, time.Second)
+}
+
+func TestSessionStoreGetRejectsUnknownToken(t *testing.T) {
+	pool := testPool(t)
+	store := NewPostgresSessionStore(pool)
+
+	_, hash, err := newSessionToken()
+	require.NoError(t, err)
+
+	_, err = store.Get(context.Background(), hash)
+	assert.ErrorIs(t, err, ErrSessionNotFound)
+}
+
+func TestSessionStoreGetRejectsExpiredSession(t *testing.T) {
+	pool := testPool(t)
+	store := NewPostgresSessionStore(pool)
+
+	userID := createSessionUser(t, pool, "expired")
+	hash := createTestSession(t, store, userID, time.Now().UTC().Add(-time.Minute))
+
+	_, err := store.Get(context.Background(), hash)
+	assert.ErrorIs(t, err, ErrSessionNotFound)
+
+	assert.Zero(t, countSessions(t, pool, userID),
+		"abgelaufene Session muss beim Zugriff geloescht werden")
+}
+
+func TestSessionStoreTouchExtendsExpiry(t *testing.T) {
+	pool := testPool(t)
+	store := NewPostgresSessionStore(pool)
+
+	userID := createSessionUser(t, pool, "touch")
+	hash := createTestSession(t, store, userID, time.Now().UTC().Add(time.Hour))
+
+	extended := time.Now().UTC().Add(30 * 24 * time.Hour)
+	require.NoError(t, store.Touch(context.Background(), hash, extended))
+
+	got, err := store.Get(context.Background(), hash)
+	require.NoError(t, err)
+	assert.WithinDuration(t, extended, got.ExpiresAt, time.Second)
+}
+
+func TestSessionStoreDeleteEndsOnlyOneSession(t *testing.T) {
+	pool := testPool(t)
+	store := NewPostgresSessionStore(pool)
+
+	userID := createSessionUser(t, pool, "twologins")
+	expiresAt := time.Now().UTC().Add(time.Hour)
+	laptop := createTestSession(t, store, userID, expiresAt)
+	phone := createTestSession(t, store, userID, expiresAt)
+
+	require.NoError(t, store.Delete(context.Background(), laptop))
+
+	_, err := store.Get(context.Background(), laptop)
+	assert.ErrorIs(t, err, ErrSessionNotFound)
+
+	_, err = store.Get(context.Background(), phone)
+	assert.NoError(t, err, "die zweite Session desselben Users muss bestehen bleiben")
+}
+
+func TestSessionStoreDeleteByUserSparesOtherUsers(t *testing.T) {
+	pool := testPool(t)
+	store := NewPostgresSessionStore(pool)
+
+	expiresAt := time.Now().UTC().Add(time.Hour)
+	mine := createSessionUser(t, pool, "mine")
+	createTestSession(t, store, mine, expiresAt)
+	createTestSession(t, store, mine, expiresAt)
+
+	other := createSessionUser(t, pool, "other")
+	otherHash := createTestSession(t, store, other, expiresAt)
+
+	require.NoError(t, store.DeleteByUser(context.Background(), mine))
+
+	assert.Zero(t, countSessions(t, pool, mine))
+
+	_, err := store.Get(context.Background(), otherHash)
+	assert.NoError(t, err, "fremde Sessions duerfen nicht mitgeloescht werden")
+}
