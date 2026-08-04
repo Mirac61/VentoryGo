@@ -183,7 +183,7 @@ func TestRegisterRejectsBrokenJSONWith400(t *testing.T) {
 
 func TestRegisterCreatesUserAndOmitsPasswordHash(t *testing.T) {
 	repo := &fakeRepo{}
-	h := NewHandler(NewService(repo, nil), true)
+	h := NewHandler(NewService(repo, &fakeSessionStore{}), true)
 
 	c, rec := postJSON(`{"email":"max@example.com","password":"correct horse battery"}`)
 	h.Register(c)
@@ -205,7 +205,7 @@ func TestRegisterCreatesUserAndOmitsPasswordHash(t *testing.T) {
 }
 
 func TestRegisterMapsEmailTakenTo409(t *testing.T) {
-	h := NewHandler(NewService(&fakeRepo{err: ErrEmailTaken}, nil), true)
+	h := NewHandler(NewService(&fakeRepo{err: ErrEmailTaken}, &fakeSessionStore{}), true)
 
 	c, rec := postJSON(`{"email":"max@example.com","password":"correct horse battery"}`)
 	h.Register(c)
@@ -350,7 +350,7 @@ func TestRegisterPasswordLengthBoundary(t *testing.T) {
 		{"zwoelf Zeichen", strings.Repeat("a", 12), http.StatusCreated},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			h := NewHandler(NewService(&fakeRepo{}, nil), true)
+			h := NewHandler(NewService(&fakeRepo{}, &fakeSessionStore{}), true)
 
 			c, rec := postJSON(fmt.Sprintf(`{"email":"max@example.com","password":%q}`, tc.password))
 			h.Register(c)

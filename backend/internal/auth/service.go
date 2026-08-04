@@ -52,6 +52,9 @@ func NewService(repo userRepository, sessions SessionStore) *Service {
 }
 
 func NewServiceWithSessionTTL(repo userRepository, sessions SessionStore, ttl time.Duration) *Service {
+	if sessions == nil {
+		panic("auth: sessions store is nil")
+	}
 	return &Service{repo: repo, sessions: sessions, sessionTTL: ttl}
 }
 

@@ -11,6 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNewServiceRejectsMissingSessionStore(t *testing.T) {
+	assert.Panics(t, func() { NewService(&fakeRepo{}, nil) })
+}
+
 func TestLoginStoresOnlyTheTokenHash(t *testing.T) {
 	store := &fakeSessionStore{}
 	service := NewService(&fakeRepo{}, store)
@@ -141,7 +145,7 @@ func TestRegisterNormalizesEmail(t *testing.T) {
 		{"\tMAX@EXAMPLE.COM\n", "max@example.com"},
 	} {
 		repo := &fakeRepo{}
-		user, err := NewService(repo, nil).Register(context.Background(), tc.in, "correct horse battery")
+		user, err := NewService(repo, &fakeSessionStore{}).Register(context.Background(), tc.in, "correct horse battery")
 		require.NoError(t, err)
 
 		assert.Equal(t, tc.want, user.Email, "Rueckgabe fuer %q", tc.in)

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -26,7 +27,9 @@ func RequireAuth(sessions SessionStore, ttl time.Duration, cookieSecure bool) gi
 		now := time.Now().UTC()
 		lastTouch := session.ExpiresAt.Add(-ttl)
 		if lastTouch.Before(now.Add(-renewInterval)) {
-			if err := sessions.Touch(c.Request.Context(), hash, now.Add(ttl)); err == nil {
+			if err := sessions.Touch(c.Request.Context(), hash, now.Add(ttl)); err != nil {
+				log.Printf("session touch: %v", err)
+			} else {
 				setSessionCookie(c, token, int(ttl.Seconds()), cookieSecure)
 			}
 		}
