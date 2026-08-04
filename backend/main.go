@@ -8,7 +8,6 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/auth"
 	"github.com/Mirac61/VentoryGo/backend/internal/db"
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,20 +27,25 @@ func main() {
 		log.Fatalf("failed to read invoice numbering config: %v", err)
 	}
 
-	r := gin.Default()
+	cookieSecure, err := auth.CookieSecureFromEnv()
+	if err != nil {
+		log.Fatalf("failed to read cookie config: %v", err)
+	}
 
-	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:5173"},
-		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowHeaders: []string{"Content-Type"},
-	}))
+	sessionTTL, err := auth.SessionTTLFromEnv()
+	if err != nil {
+		log.Fatalf("failed to read session config: %v", err)
+	}
+
+	r := gin.Default()
 
 	repo := invoice.NewPostgresRepository(pool)
 	service := invoice.NewServiceWithNumbering(repo, numbering)
 	handler := invoice.NewHandler(service)
 	authRepo := auth.NewPostgresRepository(pool)
-	authService := auth.NewService(authRepo)
-	authHandler := auth.NewHandler(authService)
+	sessionStore := auth.NewPostgresSessionStore(pool)
+	authService := auth.NewServiceWithSessionTTL(authRepo, sessionStore, sessionTTL)
+	authHandler := auth.NewHandler(authService, cookieSecure)
 
 	r.POST("/api/invoices", handler.Create)
 	r.POST("/api/invoices/:id/issue", handler.Issue)
@@ -51,6 +55,9 @@ func main() {
 	r.PUT("/api/invoices/:id", handler.Update)
 	r.PATCH("/api/invoices/:id", handler.PartialUpdate)
 	r.POST("/api/auth/register", authHandler.Register)
+	r.POST("/api/auth/login", authHandler.Login)
+	r.POST("/api/auth/logout", authHandler.Logout)
+	r.GET("/api/auth/me", auth.RequireAuth(sessionStore, sessionTTL, cookieSecure), authHandler.Me)
 
 	r.Run(":8080")
 }
