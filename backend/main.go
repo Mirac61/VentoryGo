@@ -8,7 +8,6 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/auth"
 	"github.com/Mirac61/VentoryGo/backend/internal/db"
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,13 +39,6 @@ func main() {
 
 	r := gin.Default()
 
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowHeaders:     []string{"Content-Type"},
-		AllowCredentials: true,
-	}))
-
 	repo := invoice.NewPostgresRepository(pool)
 	service := invoice.NewServiceWithNumbering(repo, numbering)
 	handler := invoice.NewHandler(service)
@@ -64,7 +56,8 @@ func main() {
 	r.PATCH("/api/invoices/:id", handler.PartialUpdate)
 	r.POST("/api/auth/register", authHandler.Register)
 	r.POST("/api/auth/login", authHandler.Login)
-	r.GET("/api/auth", auth.RequireAuth(sessionStore, sessionTTL))
+	r.POST("/api/auth/logout", authHandler.Logout)
+	r.GET("/api/auth/me", auth.RequireAuth(sessionStore, sessionTTL), authHandler.Me)
 
 	r.Run(":8080")
 }

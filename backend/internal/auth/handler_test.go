@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -38,10 +39,20 @@ func (f *fakeRepo) FindByEmail(_ context.Context, email string) (User, error) {
 	return User{}, ErrUserNotFound
 }
 
+func (f *fakeRepo) FindByID(_ context.Context, id uuid.UUID) (User, error) {
+	for _, user := range f.created {
+		if user.ID == id.String() {
+			return user, nil
+		}
+	}
+	return User{}, ErrUserNotFound
+}
+
 type fakeSessionStore struct {
 	created        []Session
 	expiredCleared []uuid.UUID
 	err            error
+	touched        int
 }
 
 func (f *fakeSessionStore) Create(_ context.Context, s Session) error {
@@ -52,20 +63,53 @@ func (f *fakeSessionStore) Create(_ context.Context, s Session) error {
 	return nil
 }
 
-func (f *fakeSessionStore) Get(context.Context, []byte) (Session, error) {
-	return Session{}, ErrSessionNotFound
+func (f *fakeSessionStore) index(tokenHash []byte) int {
+	for i, s := range f.created {
+		if bytes.Equal(s.TokenHash, tokenHash) {
+			return i
+		}
+	}
+	return -1
 }
 
-func (f *fakeSessionStore) Touch(context.Context, []byte, time.Time) error { return nil }
+func (f *fakeSessionStore) remove(i int) {
+	f.created = append(f.created[:i], f.created[i+1:]...)
+}
 
-func (f *fakeSessionStore) Delete(context.Context, []byte) error { return nil }
+func (f *fakeSessionStore) Get(_ context.Context, tokenHash []byte) (Session, error) {
+	i := f.index(tokenHash)
+	if i < 0 {
+		return Session{}, ErrSessionNotFound
+	}
+	if !f.created[i].ExpiresAt.After(time.Now().UTC()) {
+		f.remove(i)
+		return Session{}, ErrSessionNotFound
+	}
+	return f.created[i], nil
+}
+
+func (f *fakeSessionStore) Touch(_ context.Context, tokenHash []byte, expiresAt time.Time) error {
+	i := f.index(tokenHash)
+	if i < 0 {
+		return ErrSessionNotFound
+	}
+	f.created[i].ExpiresAt = expiresAt
+	f.touched++
+	return nil
+}
+
+func (f *fakeSessionStore) Delete(_ context.Context, tokenHash []byte) error {
+	if i := f.index(tokenHash); i >= 0 {
+		f.remove(i)
+	}
+	return nil
+}
 
 func (f *fakeSessionStore) DeleteExpiredByUser(_ context.Context, userID uuid.UUID) error {
 	f.expiredCleared = append(f.expiredCleared, userID)
 	return nil
 }
 
-// Legt einen Service mit registriertem Nutzer an und gibt ihn samt Store zurueck.
 func serviceWithUser(t *testing.T, email, password string) (*Service, *fakeSessionStore) {
 	t.Helper()
 	store := &fakeSessionStore{}
@@ -75,8 +119,6 @@ func serviceWithUser(t *testing.T, email, password string) (*Service, *fakeSessi
 	return s, store
 }
 
-// Geht ueber einen echten Router: nur so wird der Statuscode geschrieben,
-// wenn ein Handler ohne Body antwortet.
 func serveLogin(h *Handler, body string) *httptest.ResponseRecorder {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -153,7 +195,6 @@ func TestRegisterCreatesUserAndOmitsPasswordHash(t *testing.T) {
 	assert.NotContains(t, body, "passwordHash")
 	assert.NotContains(t, body, "password_hash")
 
-	// Faengt den Hash auch dann, wenn er unter einem anderen Key auftauchen wuerde.
 	assert.NotContains(t, rec.Body.String(), "argon2")
 
 	require.Len(t, repo.created, 1)
@@ -189,7 +230,6 @@ func TestLoginSetsSessionCookieAndKeepsTokenOutOfBody(t *testing.T) {
 	assert.Equal(t, "/", cookie.Path)
 	assert.Equal(t, int(defaultSessionTTL.Seconds()), cookie.MaxAge)
 
-	// Das Klartext-Token gehoert ausschliesslich ins Cookie.
 	assert.NotContains(t, rec.Body.String(), cookie.Value)
 }
 
@@ -214,7 +254,6 @@ func TestCookieSecureFromEnv(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		// Ohne Konfiguration muss der sichere Wert herauskommen.
 		{name: "nicht gesetzt", want: true},
 		{name: "false", value: "false", want: false},
 		{name: "0", value: "0", want: false},
@@ -252,7 +291,6 @@ func TestLoginMapsBadCredentialsTo401WithoutLeakingWhy(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, rec.Code)
 			assert.NotEqual(t, http.StatusNotFound, rec.Code)
 
-			// Beide Faelle muessen wortgleich antworten, sonst sind Konten aufzaehlbar.
 			assert.JSONEq(t, `{"error":"invalid email or password"}`, rec.Body.String())
 			assert.Empty(t, rec.Result().Cookies())
 		})
@@ -291,7 +329,6 @@ func TestLoginRejectsInvalidBody(t *testing.T) {
 	}
 }
 
-// Kurze Passwoerter muessen 401 geben, nicht 422 - sonst verraet der Login die Policy.
 func TestLoginDoesNotEnforcePasswordPolicy(t *testing.T) {
 	service, _ := serviceWithUser(t, "max@example.com", "correct horse battery")
 

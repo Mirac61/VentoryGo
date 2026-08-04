@@ -38,6 +38,7 @@ var dummyHash = sync.OnceValue(func() string {
 type userRepository interface {
 	Create(ctx context.Context, user User) error
 	FindByEmail(ctx context.Context, email string) (User, error)
+	FindByID(ctx context.Context, id uuid.UUID) (User, error)
 }
 
 type Service struct {
@@ -117,4 +118,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	}
 
 	return user, token, nil
+}
+
+func (s *Service) Logout(ctx context.Context, token string) error {
+	return s.sessions.Delete(ctx, hashToken(token))
+}
+
+func (s *Service) Me(ctx context.Context, id uuid.UUID) (User, error) {
+	return s.repo.FindByID(ctx, id)
 }

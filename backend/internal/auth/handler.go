@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 const defaultCookieSecure = true
@@ -91,4 +92,29 @@ func (h *Handler) Login(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("session", token, int(h.service.sessionTTL.Seconds()), "/", "", h.cookieSecure, true)
 	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) Logout(c *gin.Context) {
+	token, err := c.Cookie("session")
+	if err == nil {
+		_ = h.service.Logout(c.Request.Context(), token)
+	}
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("session", "", -1, "/", "", h.cookieSecure, true)
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) Me(c *gin.Context) {
+	value, _ := c.Get("user_id")
+	id, ok := value.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	user, err := h.service.Me(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		return
+	}
+	c.JSON(http.StatusOK, user)
 }

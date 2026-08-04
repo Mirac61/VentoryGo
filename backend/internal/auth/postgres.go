@@ -47,6 +47,19 @@ func (r *PostgresRepository) FindByEmail(ctx context.Context, email string) (Use
 	return u, nil
 }
 
+func (r *PostgresRepository) FindByID(ctx context.Context, id uuid.UUID) (User, error) {
+	var u User
+	const query = `SELECT id, email, password_hash, created_at FROM users WHERE id=$1`
+	err := r.pool.QueryRow(ctx, query, id).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return User{}, err
+	}
+	return u, nil
+}
+
 type PostgresSessionStore struct {
 	pool *pgxpool.Pool
 }
