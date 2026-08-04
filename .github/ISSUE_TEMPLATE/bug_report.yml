@@ -1,0 +1,61 @@
+name: Bug
+description: Etwas funktioniert nicht wie beschrieben
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      options:
+        - Backend
+        - Frontend
+        - Datenbank / Migration
+        - Docker / Setup
+        - Unklar
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Was passiert
+      description: Beobachtetes Verhalten, inklusive Statuscode oder Fehlermeldung.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Was erwartet wäre
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduktion
+      description: >
+        Konkrete Schritte oder ein curl-Aufruf. Ohne Reproduktion bleibt das Issue offen,
+        bis eine nachgereicht wird.
+      placeholder: |
+        curl -X POST localhost:8080/api/invoices \
+          -H 'Content-Type: application/json' \
+          -d '{"unitPrice": 3333, "quantity": 3}'
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit oder Branch
+      placeholder: main @ a1b2c3d
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevanter Ausschnitt, nicht das komplette Terminal.
+      render: text
