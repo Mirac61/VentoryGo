@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)/backend"
+
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then
+  echo "nicht formatiert:"
+  echo "$unformatted"
+  exit 1
+fi
+
+go vet ./...
+go test ./... -race
