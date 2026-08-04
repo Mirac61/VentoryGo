@@ -1,0 +1,49 @@
+name: Feature
+description: Konkrete Änderung, die umgesetzt werden soll
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Für lose Ideen bitte eine
+        [Discussion](../../discussions/categories/ideas) statt eines Issues.
+        Hier landet nur, was schon durchdacht genug für einen PR ist.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Bereich
+      options:
+        - Backend
+        - Frontend
+        - Datenbank / Migration
+        - Docker / Setup
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Was geht heute nicht oder nur umständlich?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Vorschlag
+      description: >
+        Bei API-Änderungen: betroffene Endpunkte und Felder. Bei Schema-Änderungen:
+        ob eine Migration nötig ist.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Auswirkung
+      options:
+        - label: Breaking Change für die API
+        - label: Braucht eine Migration
+        - label: Frontend muss nachziehen
