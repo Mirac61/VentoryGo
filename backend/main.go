@@ -8,7 +8,6 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/auth"
 	"github.com/Mirac61/VentoryGo/backend/internal/db"
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
-	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -37,8 +36,6 @@ func main() {
 		log.Fatalf("failed to read session config: %v", err)
 	}
 
-	r := gin.Default()
-
 	repo := invoice.NewPostgresRepository(pool)
 	service := invoice.NewServiceWithNumbering(repo, numbering)
 	handler := invoice.NewHandler(service)
@@ -47,17 +44,7 @@ func main() {
 	authService := auth.NewServiceWithSessionTTL(authRepo, sessionStore, sessionTTL)
 	authHandler := auth.NewHandler(authService, cookieSecure)
 
-	r.POST("/api/invoices", handler.Create)
-	r.POST("/api/invoices/:id/issue", handler.Issue)
-	r.GET("/api/invoices", handler.GetAll)
-	r.GET("/api/invoices/:id", handler.GetByID)
-	r.DELETE("/api/invoices/:id", handler.Delete)
-	r.PUT("/api/invoices/:id", handler.Update)
-	r.PATCH("/api/invoices/:id", handler.PartialUpdate)
-	r.POST("/api/auth/register", authHandler.Register)
-	r.POST("/api/auth/login", authHandler.Login)
-	r.POST("/api/auth/logout", authHandler.Logout)
-	r.GET("/api/auth/me", auth.RequireAuth(sessionStore, sessionTTL, cookieSecure), authHandler.Me)
+	r := newRouter(handler, authHandler, sessionStore, sessionTTL, cookieSecure)
 
 	r.Run(":8080")
 }
