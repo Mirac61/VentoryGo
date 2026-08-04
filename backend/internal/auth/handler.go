@@ -40,6 +40,11 @@ func CookieSecureFromEnv() (bool, error) {
 	return secure, nil
 }
 
+func setSessionCookie(c *gin.Context, token string, maxAge int, secure bool) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("session", token, maxAge, "/", "", secure, true)
+}
+
 func bindJSON(c *gin.Context, req any) bool {
 	if err := c.ShouldBindJSON(req); err != nil {
 		if validationErrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
@@ -89,18 +94,20 @@ func (h *Handler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		return
 	}
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("session", token, int(h.service.sessionTTL.Seconds()), "/", "", h.cookieSecure, true)
+	setSessionCookie(c, token, int(h.service.sessionTTL.Seconds()), h.cookieSecure)
 	c.Status(http.StatusNoContent)
 }
 
 func (h *Handler) Logout(c *gin.Context) {
-	token, err := c.Cookie("session")
-	if err == nil {
-		_ = h.service.Logout(c.Request.Context(), token)
+	token, cookieErr := c.Cookie("session")
+	if cookieErr == nil {
+		if err := h.service.Logout(c.Request.Context(), token); err != nil {
+			setSessionCookie(c, "", -1, h.cookieSecure)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			return
+		}
 	}
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("session", "", -1, "/", "", h.cookieSecure, true)
+	setSessionCookie(c, "", -1, h.cookieSecure)
 	c.Status(http.StatusNoContent)
 }
 

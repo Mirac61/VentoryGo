@@ -7,9 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const renewInterval = 15 * time.Minute
+const maxRenewInterval = 15 * time.Minute
 
-func RequireAuth(sessions SessionStore, ttl time.Duration) gin.HandlerFunc {
+func RequireAuth(sessions SessionStore, ttl time.Duration, cookieSecure bool) gin.HandlerFunc {
+	renewInterval := min(maxRenewInterval, ttl/2)
 	return func(c *gin.Context) {
 		token, err := c.Cookie("session")
 		if err != nil {
@@ -25,7 +26,9 @@ func RequireAuth(sessions SessionStore, ttl time.Duration) gin.HandlerFunc {
 		now := time.Now().UTC()
 		lastTouch := session.ExpiresAt.Add(-ttl)
 		if lastTouch.Before(now.Add(-renewInterval)) {
-			_ = sessions.Touch(c.Request.Context(), hash, now.Add(ttl))
+			if err := sessions.Touch(c.Request.Context(), hash, now.Add(ttl)); err == nil {
+				setSessionCookie(c, token, int(ttl.Seconds()), cookieSecure)
+			}
 		}
 		c.Set("user_id", session.UserID)
 		c.Next()

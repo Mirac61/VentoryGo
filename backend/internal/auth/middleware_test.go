@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -27,7 +28,7 @@ func authRouter(t *testing.T, ttl time.Duration) (*gin.Engine, *fakeSessionStore
 	r := gin.New()
 	r.POST("/api/auth/login", h.Login)
 	r.POST("/api/auth/logout", h.Logout)
-	r.GET("/api/auth/me", RequireAuth(store, ttl), h.Me)
+	r.GET("/api/auth/me", RequireAuth(store, ttl, true), h.Me)
 	return r, store
 }
 
@@ -183,6 +184,57 @@ func TestRenewalKeepsSessionUsable(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, do(r, http.MethodGet, "/api/auth/me", cookie).Code)
 	assert.WithinDuration(t, time.Now().UTC().Add(ttl), store.created[0].ExpiresAt, time.Minute)
+}
+
+func TestRenewalRefreshesTheCookie(t *testing.T) {
+	const ttl = time.Hour
+	r, store := authRouter(t, ttl)
+	cookie := doLogin(t, r)
+
+	store.created[0].ExpiresAt = time.Now().UTC().Add(ttl - 20*time.Minute)
+
+	rec := do(r, http.MethodGet, "/api/auth/me", cookie)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 1, store.touched)
+
+	refreshed := sessionCookie(t, rec)
+	assert.Equal(t, cookie.Value, refreshed.Value)
+	assert.Equal(t, int(ttl.Seconds()), refreshed.MaxAge)
+	assert.True(t, refreshed.HttpOnly)
+	assert.True(t, refreshed.Secure)
+}
+
+func TestRequestWithoutRenewalKeepsTheCookieUntouched(t *testing.T) {
+	r, store := authRouter(t, time.Hour)
+	cookie := doLogin(t, r)
+
+	rec := do(r, http.MethodGet, "/api/auth/me", cookie)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 0, store.touched)
+
+	assert.Empty(t, rec.Result().Cookies())
+}
+
+func TestRenewalWorksForTTLBelowMaxRenewInterval(t *testing.T) {
+	const ttl = 10 * time.Minute
+	r, store := authRouter(t, ttl)
+	cookie := doLogin(t, r)
+
+	store.created[0].ExpiresAt = time.Now().UTC().Add(ttl - 6*time.Minute)
+
+	require.Equal(t, http.StatusOK, do(r, http.MethodGet, "/api/auth/me", cookie).Code)
+	assert.Equal(t, 1, store.touched)
+}
+
+func TestLogoutReportsFailedRevocation(t *testing.T) {
+	r, store := authRouter(t, time.Hour)
+	cookie := doLogin(t, r)
+	store.err = errors.New("boom")
+
+	rec := do(r, http.MethodPost, "/api/auth/logout", cookie)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, -1, sessionCookie(t, rec).MaxAge, "das Cookie beim Aufrufer muss trotzdem weg")
 }
 
 func TestMeIsUnreachableWithoutMiddleware(t *testing.T) {

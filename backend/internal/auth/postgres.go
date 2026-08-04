@@ -99,7 +99,7 @@ func (r *PostgresSessionStore) Touch(ctx context.Context, tokenHash []byte, expi
 }
 
 func (r *PostgresSessionStore) Delete(ctx context.Context, tokenHash []byte) error {
-	const query = `Delete FROM sessions WHERE token_hash=$1`
+	const query = `DELETE FROM sessions WHERE token_hash=$1`
 	_, err := r.pool.Exec(ctx, query, hex.EncodeToString(tokenHash))
 	return err
 }

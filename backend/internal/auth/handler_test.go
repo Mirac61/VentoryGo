@@ -99,6 +99,9 @@ func (f *fakeSessionStore) Touch(_ context.Context, tokenHash []byte, expiresAt 
 }
 
 func (f *fakeSessionStore) Delete(_ context.Context, tokenHash []byte) error {
+	if f.err != nil {
+		return f.err
+	}
 	if i := f.index(tokenHash); i >= 0 {
 		f.remove(i)
 	}

@@ -57,7 +57,7 @@ func main() {
 	r.POST("/api/auth/register", authHandler.Register)
 	r.POST("/api/auth/login", authHandler.Login)
 	r.POST("/api/auth/logout", authHandler.Logout)
-	r.GET("/api/auth/me", auth.RequireAuth(sessionStore, sessionTTL), authHandler.Me)
+	r.GET("/api/auth/me", auth.RequireAuth(sessionStore, sessionTTL, cookieSecure), authHandler.Me)
 
 	r.Run(":8080")
 }
