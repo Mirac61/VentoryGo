@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Frage zu Setup oder Nutzung
+    url: https://github.com/Mirac61/VentoryGo/discussions/categories/q-a
+    about: Kein Bug, sondern eine Frage — bitte unter Q&A stellen.
+  - name: Idee ohne konkreten Plan
+    url: https://github.com/Mirac61/VentoryGo/discussions/categories/ideas
+    about: Erst diskutieren, dann als Feature-Issue anlegen.
