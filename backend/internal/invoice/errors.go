@@ -8,4 +8,5 @@ var (
 	ErrNotUpdatable      = errors.New("invoice not updatable")
 	ErrInvalidInput      = errors.New("invalid invoice data")
 	ErrInvalidTransition = errors.New("invalid status transition")
+	ErrMissingOwner      = errors.New("owner id missing from context")
 )

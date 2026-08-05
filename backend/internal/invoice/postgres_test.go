@@ -45,12 +45,12 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-func createPostgresDraft(t *testing.T, s *Service, repo *PostgresRepository) Invoice {
+func createPostgresDraft(t *testing.T, s *Service, repo *PostgresRepository, owner string) Invoice {
 	t.Helper()
 
-	created, err := s.Create(draftInvoice())
+	created, err := s.Create(draftInvoice(), owner)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = repo.Delete(created.ID) })
+	t.Cleanup(func() { _ = repo.Delete(created.ID, owner) })
 	return created
 }
 
@@ -104,6 +104,7 @@ func claimCounterYears(t *testing.T, pool *pgxpool.Pool, years ...int) {
 func TestPostgresGetByID(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
+	owner := seedUser(t, pool)
 
 	invoice := Invoice{
 		ID:            uuid.NewString(),
@@ -117,11 +118,11 @@ func TestPostgresGetByID(t *testing.T) {
 		VATRate: 0.19,
 	}
 
-	created, err := repo.Create(invoice)
+	created, err := repo.Create(invoice, owner)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = repo.Delete(created.ID) })
+	t.Cleanup(func() { _ = repo.Delete(created.ID, owner) })
 
-	fetched, err := repo.GetByID(created.ID)
+	fetched, err := repo.GetByID(created.ID, owner)
 	require.NoError(t, err)
 	require.NotNil(t, fetched.InvoiceNumber)
 	assert.Equal(t, *created.InvoiceNumber, *fetched.InvoiceNumber)
@@ -133,11 +134,12 @@ func TestPostgresGetByID_DraftReturnsNilInvoiceNumber(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
+	owner := seedUser(t, pool)
 
-	created := createPostgresDraft(t, s, repo)
+	created := createPostgresDraft(t, s, repo, owner)
 	require.Nil(t, created.InvoiceNumber)
 
-	fetched, err := repo.GetByID(created.ID)
+	fetched, err := repo.GetByID(created.ID, owner)
 
 	require.NoError(t, err)
 	assert.Nil(t, fetched.InvoiceNumber, `the empty column must read back as nil, not as a pointer to ""`)
@@ -147,14 +149,15 @@ func TestPostgresCreate_IgnoresClientSuppliedInvoiceNumber(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
+	owner := seedUser(t, pool)
 
 	const supplied = "INV-2026-9999"
 	draft := draftInvoice()
 	draft.InvoiceNumber = new(supplied)
 
-	created, err := s.Create(draft)
+	created, err := s.Create(draft, owner)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = repo.Delete(created.ID) })
+	t.Cleanup(func() { _ = repo.Delete(created.ID, owner) })
 
 	assert.Nil(t, created.InvoiceNumber)
 
@@ -173,6 +176,7 @@ func TestPostgresIssue_ConcurrentDrawsDistinctNumbers(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
+	owner := seedUser(t, pool)
 
 	const workers = 50
 	const year = 2996
@@ -180,7 +184,7 @@ func TestPostgresIssue_ConcurrentDrawsDistinctNumbers(t *testing.T) {
 
 	drafts := make([]Invoice, 0, workers)
 	for range workers {
-		drafts = append(drafts, createPostgresDraft(t, s, repo))
+		drafts = append(drafts, createPostgresDraft(t, s, repo, owner))
 	}
 	s.now = func() time.Time {
 		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
@@ -192,7 +196,7 @@ func TestPostgresIssue_ConcurrentDrawsDistinctNumbers(t *testing.T) {
 	var wg sync.WaitGroup
 	for i, draft := range drafts {
 		wg.Go(func() {
-			issued, err := s.Issue(draft.ID)
+			issued, err := s.Issue(draft.ID, owner)
 			if err != nil {
 				errs[i] = err
 				return
@@ -226,12 +230,13 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
+	owner := seedUser(t, pool)
 
 	const year = 2995
 	claimCounterYears(t, pool, year)
 
-	failing := createPostgresDraft(t, s, repo)
-	next := createPostgresDraft(t, s, repo)
+	failing := createPostgresDraft(t, s, repo, owner)
+	next := createPostgresDraft(t, s, repo, owner)
 
 	issuedAt := time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
 	s.now = func() time.Time { return issuedAt }
@@ -242,17 +247,17 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 			return Invoice{}, err
 		}
 		return Invoice{}, boom
-	})
+	}, owner)
 	require.ErrorIs(t, err, boom)
 
 	assert.Equal(t, 0, readCounter(t, pool, year), "a rolled back issue must give the counter value back")
 
-	unchanged, err := repo.GetByID(failing.ID)
+	unchanged, err := repo.GetByID(failing.ID, owner)
 	require.NoError(t, err)
 	assert.Equal(t, StatusDraft, unchanged.Status)
 	assert.Nil(t, unchanged.InvoiceNumber)
 
-	issued, err := s.Issue(next.ID)
+	issued, err := s.Issue(next.ID, owner)
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)
 	assert.Equal(t, 1, counterOf(t, *issued.InvoiceNumber), "the next issue gets the number the failed one drew")
@@ -262,23 +267,24 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
+	owner := seedUser(t, pool)
 
 	const oldYear, newYear = 2999, 3000
 	claimCounterYears(t, pool, oldYear, newYear)
 
-	last := createPostgresDraft(t, s, repo)
-	first := createPostgresDraft(t, s, repo)
+	last := createPostgresDraft(t, s, repo, owner)
+	first := createPostgresDraft(t, s, repo, owner)
 
 	s.now = func() time.Time {
 		return time.Date(oldYear, 12, 31, 23, 59, 0, 0, s.numbering.Location)
 	}
-	issuedLast, err := s.Issue(last.ID)
+	issuedLast, err := s.Issue(last.ID, owner)
 	require.NoError(t, err)
 
 	s.now = func() time.Time {
 		return time.Date(newYear, 1, 1, 0, 1, 0, 0, s.numbering.Location)
 	}
-	issuedFirst, err := s.Issue(first.ID)
+	issuedFirst, err := s.Issue(first.ID, owner)
 	require.NoError(t, err)
 
 	require.NotNil(t, issuedLast.InvoiceNumber)
@@ -288,7 +294,7 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 
 	// Read back from the database so the stored issued_at is what gets compared.
 	for _, id := range []string{last.ID, first.ID} {
-		stored, err := repo.GetByID(id)
+		stored, err := repo.GetByID(id, owner)
 		require.NoError(t, err)
 		require.NotNil(t, stored.InvoiceNumber)
 		assert.Equalf(t, yearOf(t, *stored.InvoiceNumber), stored.IssuedAt.In(s.numbering.Location).Year(),
@@ -300,17 +306,18 @@ func TestPostgresIssue_NewYearInConfiguredZoneWhileServerIsStillInOldYear(t *tes
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)
 	s := NewService(repo)
+	owner := seedUser(t, pool)
 
 	const oldYear, newYear = 2997, 2998
 	claimCounterYears(t, pool, oldYear, newYear)
 
-	draft := createPostgresDraft(t, s, repo)
+	draft := createPostgresDraft(t, s, repo, owner)
 
 	// 23:30 UTC on New Year's Eve is already 00:30 on January 1st in Berlin.
 	s.now = func() time.Time {
 		return time.Date(oldYear, 12, 31, 23, 30, 0, 0, time.UTC)
 	}
-	issued, err := s.Issue(draft.ID)
+	issued, err := s.Issue(draft.ID, owner)
 	require.NoError(t, err)
 
 	require.NotNil(t, issued.InvoiceNumber)

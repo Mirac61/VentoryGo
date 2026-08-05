@@ -34,7 +34,7 @@ func draftInvoice() Invoice {
 }
 
 func seedDraftInvoice(t *testing.T, s *Service) Invoice {
-	created, err := s.Create(draftInvoice())
+	created, err := s.Create(draftInvoice(), testOwner)
 	require.NoError(t, err)
 	return created
 }
@@ -45,7 +45,7 @@ func seedIssuedInvoice(t *testing.T, repo *Repository) Invoice {
 		Status:  StatusIssued,
 		VATRate: 0.19,
 		Items:   []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
-	})
+	}, testOwner)
 	require.NoError(t, err)
 	return created
 }
@@ -55,7 +55,7 @@ func TestPartialUpdate_NotesOnly_LeavesOtherFieldsUnchanged(t *testing.T) {
 	created := seedDraftInvoice(t, s)
 
 	newNotes := "Bitte bis Ende des Monats zahlen"
-	updated, err := s.PartialUpdate(created.ID, InvoicePatch{Notes: &newNotes})
+	updated, err := s.PartialUpdate(created.ID, InvoicePatch{Notes: &newNotes}, testOwner)
 
 	require.NoError(t, err)
 	assert.Equal(t, newNotes, updated.Notes)
@@ -97,7 +97,7 @@ func TestPartialUpdate_RecalculatesTotals(t *testing.T) {
 			created := seedDraftInvoice(t, s)
 
 			patch := InvoicePatch{Items: &test.items, VATRate: &test.vatRate}
-			updated, err := s.PartialUpdate(created.ID, patch)
+			updated, err := s.PartialUpdate(created.ID, patch, testOwner)
 
 			require.NoError(t, err)
 			assert.Equal(t, test.wantNet, updated.NetTotal)
@@ -111,7 +111,7 @@ func TestPartialUpdate_UnknownID_ReturnsNotFound(t *testing.T) {
 	s := newTestService()
 
 	notes := "egal"
-	_, err := s.PartialUpdate("does-not-exist", InvoicePatch{Notes: &notes})
+	_, err := s.PartialUpdate("does-not-exist", InvoicePatch{Notes: &notes}, testOwner)
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -119,7 +119,7 @@ func TestPartialUpdate_UnknownID_ReturnsNotFound(t *testing.T) {
 func TestCreate_DraftHasNoInvoiceNumber(t *testing.T) {
 	s := newTestService()
 
-	created, err := s.Create(draftInvoice())
+	created, err := s.Create(draftInvoice(), testOwner)
 
 	require.NoError(t, err)
 	assert.Equal(t, StatusDraft, created.Status)
@@ -132,7 +132,7 @@ func TestCreate_IgnoresClientSuppliedInvoiceNumber(t *testing.T) {
 	draft := draftInvoice()
 	draft.InvoiceNumber = new("INV-2026-0001")
 
-	created, err := s.Create(draft)
+	created, err := s.Create(draft, testOwner)
 
 	require.NoError(t, err)
 	assert.Nil(t, created.InvoiceNumber, "the number is server owned and must be discarded on create")
@@ -147,7 +147,7 @@ func TestUpdate_PreservesServerManagedFields(t *testing.T) {
 	tampered.InvoiceNumber = new("HACKED-001")
 	tampered.CreatedAt = time.Time{}
 
-	updated, err := s.Update(created.ID, tampered)
+	updated, err := s.Update(created.ID, tampered, testOwner)
 
 	require.NoError(t, err)
 	assert.Equal(t, created.Status, updated.Status)
@@ -160,24 +160,24 @@ func TestUpdate_IssuedNumberSurvivesTampering(t *testing.T) {
 	s := NewService(repo)
 	created := seedDraftInvoice(t, s)
 
-	issued, err := s.Issue(created.ID)
+	issued, err := s.Issue(created.ID, testOwner)
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)
 
 	// Drop back to draft behind the service's back, so the number is preserved
 	// for its own sake and not just because the status check rejects the call.
-	stored, err := repo.GetByID(issued.ID)
+	stored, err := repo.GetByID(issued.ID, testOwner)
 	require.NoError(t, err)
 	stored.Status = StatusDraft
 	_, err = repo.Update(stored.ID, func(Invoice, func(time.Time) (int, error)) (Invoice, error) {
 		return stored, nil
-	})
+	}, testOwner)
 	require.NoError(t, err)
 
 	tampered := stored
 	tampered.InvoiceNumber = new("HACKED-001")
 
-	updated, err := s.Update(stored.ID, tampered)
+	updated, err := s.Update(stored.ID, tampered, testOwner)
 
 	require.NoError(t, err)
 	require.NotNil(t, updated.InvoiceNumber)
@@ -189,7 +189,7 @@ func TestUpdate_NonDraft_ReturnsNotUpdatable(t *testing.T) {
 	s := NewService(repo)
 	issued := seedIssuedInvoice(t, repo)
 
-	_, err := s.Update(issued.ID, issued)
+	_, err := s.Update(issued.ID, issued, testOwner)
 
 	assert.ErrorIs(t, err, ErrNotUpdatable)
 }
@@ -200,7 +200,7 @@ func TestPartialUpdate_NonDraft_ReturnsNotUpdatable(t *testing.T) {
 	issued := seedIssuedInvoice(t, repo)
 
 	notes := "egal"
-	_, err := s.PartialUpdate(issued.ID, InvoicePatch{Notes: &notes})
+	_, err := s.PartialUpdate(issued.ID, InvoicePatch{Notes: &notes}, testOwner)
 
 	assert.ErrorIs(t, err, ErrNotUpdatable)
 }
@@ -210,7 +210,7 @@ func TestDelete_NonDraft_ReturnsNotDeletable(t *testing.T) {
 	s := NewService(repo)
 	issued := seedIssuedInvoice(t, repo)
 
-	err := s.Delete(issued.ID)
+	err := s.Delete(issued.ID, testOwner)
 
 	assert.ErrorIs(t, err, ErrNotDeletable)
 }
@@ -219,10 +219,10 @@ func TestDelete_Draft_Succeeds(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
-	err := s.Delete(created.ID)
+	err := s.Delete(created.ID, testOwner)
 	require.NoError(t, err)
 
-	_, getErr := s.GetByID(created.ID)
+	_, getErr := s.GetByID(created.ID, testOwner)
 	assert.ErrorIs(t, getErr, ErrNotFound)
 }
 
@@ -231,7 +231,7 @@ func TestPartialUpdate_InvalidData_ReturnsInvalidInput(t *testing.T) {
 	created := seedDraftInvoice(t, s)
 
 	items := []LineItem{{Description: "X", Quantity: -1, UnitPrice: 10}}
-	_, err := s.PartialUpdate(created.ID, InvoicePatch{Items: &items})
+	_, err := s.PartialUpdate(created.ID, InvoicePatch{Items: &items}, testOwner)
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
 }
@@ -243,7 +243,7 @@ func TestUpdate_InvalidData_ReturnsInvalidInput(t *testing.T) {
 	replacement := created
 	replacement.VATRate = 1.5
 
-	_, err := s.Update(created.ID, replacement)
+	_, err := s.Update(created.ID, replacement, testOwner)
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
 }
@@ -255,7 +255,7 @@ func TestUpdate_FractionalVATRate_ReturnsInvalidInput(t *testing.T) {
 	replacement := created
 	replacement.VATRate = 0.195
 
-	_, err := s.Update(created.ID, replacement)
+	_, err := s.Update(created.ID, replacement, testOwner)
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
 }
@@ -264,7 +264,7 @@ func TestIssue_Draft_SetsNumberAndTimestamp(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
-	issued, err := s.Issue(created.ID)
+	issued, err := s.Issue(created.ID, testOwner)
 
 	require.NoError(t, err)
 	assert.Equal(t, StatusIssued, issued.Status)
@@ -278,9 +278,9 @@ func TestIssue_AssignsSequentialNumbers(t *testing.T) {
 	first := seedDraftInvoice(t, s)
 	second := seedDraftInvoice(t, s)
 
-	a, err := s.Issue(first.ID)
+	a, err := s.Issue(first.ID, testOwner)
 	require.NoError(t, err)
-	b, err := s.Issue(second.ID)
+	b, err := s.Issue(second.ID, testOwner)
 	require.NoError(t, err)
 
 	require.NotNil(t, a.InvoiceNumber)
@@ -293,10 +293,10 @@ func TestIssue_AlreadyIssued_ReturnsInvalidTransition(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
-	_, err := s.Issue(created.ID)
+	_, err := s.Issue(created.ID, testOwner)
 	require.NoError(t, err)
 
-	_, err = s.Issue(created.ID)
+	_, err = s.Issue(created.ID, testOwner)
 	assert.ErrorIs(t, err, ErrInvalidTransition)
 }
 
@@ -350,10 +350,10 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 
 			replacement := created
 			test.mutate(&replacement)
-			_, err := s.Update(created.ID, replacement)
+			_, err := s.Update(created.ID, replacement, testOwner)
 			require.NoError(t, err)
 
-			issued, err := s.Issue(created.ID)
+			issued, err := s.Issue(created.ID, testOwner)
 
 			if test.wantMissing == nil {
 				assert.NoError(t, err)
@@ -385,10 +385,10 @@ func TestIssue_EmptyCurrency_ReturnsMissingCurrency(t *testing.T) {
 		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
 		Items:     []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
 		VATRate:   0.19,
-	})
+	}, testOwner)
 	require.NoError(t, err)
 
-	_, err = s.Issue(created.ID)
+	_, err = s.Issue(created.ID, testOwner)
 
 	var mfe *MissingFieldsError
 	require.True(t, errors.As(err, &mfe), "expected *MissingFieldsError, got %T: %v", err, err)
@@ -403,11 +403,11 @@ func TestUpdate_OmittedCurrency_DefaultsToEUR(t *testing.T) {
 	replacement := created
 	replacement.Currency = "" // client PUT that omits currency must not wipe it
 
-	updated, err := s.Update(created.ID, replacement)
+	updated, err := s.Update(created.ID, replacement, testOwner)
 	require.NoError(t, err)
 	assert.Equal(t, "EUR", updated.Currency)
 
-	issued, err := s.Issue(updated.ID)
+	issued, err := s.Issue(updated.ID, testOwner)
 	require.NoError(t, err)
 	assert.Equal(t, "EUR", issued.Currency)
 }
@@ -417,14 +417,14 @@ func TestUpdate_OmittedCurrency_PreservesNonEURCurrency(t *testing.T) {
 	created := seedDraftInvoice(t, s)
 
 	created.Currency = "USD"
-	created, err := s.Update(created.ID, created)
+	created, err := s.Update(created.ID, created, testOwner)
 	require.NoError(t, err)
 	require.Equal(t, "USD", created.Currency)
 
 	replacement := created
 	replacement.Currency = "" // client PUT that omits currency must not reset it to EUR
 
-	updated, err := s.Update(created.ID, replacement)
+	updated, err := s.Update(created.ID, replacement, testOwner)
 	require.NoError(t, err)
 	assert.Equal(t, "USD", updated.Currency)
 }
@@ -432,7 +432,7 @@ func TestUpdate_OmittedCurrency_PreservesNonEURCurrency(t *testing.T) {
 func TestIssue_UnknownID_ReturnsNotFound(t *testing.T) {
 	s := newTestService()
 
-	_, err := s.Issue("does-not-exist")
+	_, err := s.Issue("does-not-exist", testOwner)
 
 	assert.ErrorIs(t, err, ErrNotFound)
 }
@@ -441,11 +441,11 @@ func TestIssue_ThenUpdate_ReturnsNotUpdatable(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
-	issued, err := s.Issue(created.ID)
+	issued, err := s.Issue(created.ID, testOwner)
 	require.NoError(t, err)
 
 	notes := "zu spät"
-	_, err = s.PartialUpdate(issued.ID, InvoicePatch{Notes: &notes})
+	_, err = s.PartialUpdate(issued.ID, InvoicePatch{Notes: &notes}, testOwner)
 
 	assert.ErrorIs(t, err, ErrNotUpdatable)
 }
@@ -459,7 +459,7 @@ func TestIssue_NumberAndIssuedAtAgreeOnTheYear(t *testing.T) {
 		return time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC)
 	}
 
-	issued, err := s.Issue(created.ID)
+	issued, err := s.Issue(created.ID, testOwner)
 
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)

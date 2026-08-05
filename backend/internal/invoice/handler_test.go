@@ -20,6 +20,9 @@ func setupRouter() (*gin.Engine, *Service) {
 	handler := NewHandler(service)
 
 	r := gin.New()
+	// Steht hier fuer RequireAuth: die Handler lesen den Owner aus dem Context,
+	// die Session selbst ist nicht Gegenstand dieser Tests.
+	r.Use(func(c *gin.Context) { c.Set("user_id", testOwnerID) })
 	r.POST("/api/invoices", handler.Create)
 	r.POST("/api/invoices/:id/issue", handler.Issue)
 	r.GET("/api/invoices", handler.GetAll)

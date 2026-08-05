@@ -10,11 +10,11 @@ import (
 )
 
 type invoiceRepository interface {
-	Create(invoice Invoice) (Invoice, error)
-	GetByID(id string) (Invoice, error)
-	GetAll() ([]Invoice, error)
-	Delete(id string) error
-	Update(id string, fn UpdateFunc) (Invoice, error)
+	Create(invoice Invoice, ownerID string) (Invoice, error)
+	GetByID(id string, ownerID string) (Invoice, error)
+	GetAll(ownerID string) ([]Invoice, error)
+	Delete(id string, ownerID string) error
+	Update(id string, fn UpdateFunc, ownerID string) (Invoice, error)
 }
 
 type Service struct {
@@ -103,7 +103,10 @@ func validateForIssue(invoice Invoice) error {
 	return nil
 }
 
-func (s *Service) Create(invoice Invoice) (Invoice, error) {
+func (s *Service) Create(invoice Invoice, ownerID string) (Invoice, error) {
+	if ownerID == "" {
+		return Invoice{}, ErrMissingOwner
+	}
 	if err := validateInvoiceData(invoice.Items, invoice.VATRate); err != nil {
 		return Invoice{}, err
 	}
@@ -123,29 +126,41 @@ func (s *Service) Create(invoice Invoice) (Invoice, error) {
 	}
 	invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal = calculateTotals(invoice.Items, invoice.VATRate)
 
-	return s.repo.Create(invoice)
+	return s.repo.Create(invoice, ownerID)
 }
 
-func (s *Service) GetByID(id string) (Invoice, error) {
-	return s.repo.GetByID(id)
+func (s *Service) GetByID(id string, ownerID string) (Invoice, error) {
+	if ownerID == "" {
+		return Invoice{}, ErrMissingOwner
+	}
+	return s.repo.GetByID(id, ownerID)
 }
 
-func (s *Service) GetAll() ([]Invoice, error) {
-	return s.repo.GetAll()
+func (s *Service) GetAll(ownerID string) ([]Invoice, error) {
+	if ownerID == "" {
+		return nil, ErrMissingOwner
+	}
+	return s.repo.GetAll(ownerID)
 }
 
-func (s *Service) Delete(id string) error {
-	invoice, err := s.repo.GetByID(id)
+func (s *Service) Delete(id string, ownerID string) error {
+	if ownerID == "" {
+		return ErrMissingOwner
+	}
+	invoice, err := s.repo.GetByID(id, ownerID)
 	if err != nil {
 		return err
 	}
 	if invoice.Status != StatusDraft {
 		return ErrNotDeletable
 	}
-	return s.repo.Delete(id)
+	return s.repo.Delete(id, ownerID)
 }
 
-func (s *Service) Update(id string, replacement Invoice) (Invoice, error) {
+func (s *Service) Update(id string, replacement Invoice, ownerID string) (Invoice, error) {
+	if ownerID == "" {
+		return Invoice{}, ErrMissingOwner
+	}
 	mutate := func(invoice Invoice, _ func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrNotUpdatable
@@ -167,10 +182,13 @@ func (s *Service) Update(id string, replacement Invoice) (Invoice, error) {
 		replacement.NetTotal, replacement.VATAmount, replacement.GrossTotal = calculateTotals(replacement.Items, replacement.VATRate)
 		return replacement, nil
 	}
-	return s.repo.Update(id, mutate)
+	return s.repo.Update(id, mutate, ownerID)
 }
 
-func (s *Service) PartialUpdate(id string, patch InvoicePatch) (Invoice, error) {
+func (s *Service) PartialUpdate(id string, patch InvoicePatch, ownerID string) (Invoice, error) {
+	if ownerID == "" {
+		return Invoice{}, ErrMissingOwner
+	}
 	mutate := func(invoice Invoice, _ func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrNotUpdatable
@@ -198,10 +216,13 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch) (Invoice, error) 
 		invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal = calculateTotals(invoice.Items, invoice.VATRate)
 		return invoice, nil
 	}
-	return s.repo.Update(id, mutate)
+	return s.repo.Update(id, mutate, ownerID)
 }
 
-func (s *Service) Issue(id string) (Invoice, error) {
+func (s *Service) Issue(id string, ownerID string) (Invoice, error) {
+	if ownerID == "" {
+		return Invoice{}, ErrMissingOwner
+	}
 	return s.repo.Update(id, func(invoice Invoice, nextCounter func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrInvalidTransition
@@ -223,5 +244,5 @@ func (s *Service) Issue(id string) (Invoice, error) {
 		invoice.IssuedAt = now
 		invoice.InvoiceNumber = &number
 		return invoice, nil
-	})
+	}, ownerID)
 }

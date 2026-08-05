@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 func init() {
@@ -30,6 +31,20 @@ func init() {
 	})
 }
 
+func ownerFromContext(c *gin.Context) (string, bool) {
+	value, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "missing user in context"})
+		return "", false
+	}
+	userID, ok := value.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user in context"})
+		return "", false
+	}
+	return userID.String(), true
+}
+
 type Handler struct {
 	service *Service
 }
@@ -41,12 +56,16 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) Create(c *gin.Context) {
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
 	var invoice Invoice
 	if err := c.ShouldBindJSON(&invoice); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	created, err := h.service.Create(invoice)
+	created, err := h.service.Create(invoice, ownerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -55,8 +74,12 @@ func (h *Handler) Create(c *gin.Context) {
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
-	invoice, err := h.service.GetByID(id)
+	invoice, err := h.service.GetByID(id, ownerID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -65,7 +88,11 @@ func (h *Handler) GetByID(c *gin.Context) {
 }
 
 func (h *Handler) GetAll(c *gin.Context) {
-	invoices, err := h.service.GetAll()
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
+	invoices, err := h.service.GetAll(ownerID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -74,8 +101,12 @@ func (h *Handler) GetAll(c *gin.Context) {
 }
 
 func (h *Handler) Delete(c *gin.Context) {
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
-	err := h.service.Delete(id)
+	err := h.service.Delete(id, ownerID)
 	if errors.Is(err, ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -92,6 +123,10 @@ func (h *Handler) Delete(c *gin.Context) {
 }
 
 func (h *Handler) Update(c *gin.Context) {
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 	var input Invoice
 
@@ -99,7 +134,7 @@ func (h *Handler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	updated, err := h.service.Update(id, input)
+	updated, err := h.service.Update(id, input, ownerID)
 
 	if errors.Is(err, ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -121,6 +156,10 @@ func (h *Handler) Update(c *gin.Context) {
 }
 
 func (h *Handler) PartialUpdate(c *gin.Context) {
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
 	var input InvoicePatch
 
@@ -128,7 +167,7 @@ func (h *Handler) PartialUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	updated, err := h.service.PartialUpdate(id, input)
+	updated, err := h.service.PartialUpdate(id, input, ownerID)
 	if errors.Is(err, ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -149,8 +188,12 @@ func (h *Handler) PartialUpdate(c *gin.Context) {
 }
 
 func (h *Handler) Issue(c *gin.Context) {
+	ownerID, ok := ownerFromContext(c)
+	if !ok {
+		return
+	}
 	id := c.Param("id")
-	issued, err := h.service.Issue(id)
+	issued, err := h.service.Issue(id, ownerID)
 	if errors.Is(err, ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
