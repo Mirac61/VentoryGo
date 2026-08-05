@@ -44,7 +44,7 @@ func scanInvoice(row rowScanner) (Invoice, error) {
 		&invoice.ID, &number, &invoice.Status, &invoice.CreatedAt, &invoice.IssuedAt, &invoice.PaymentDueAt, &invoice.ServiceDate, &invoice.Currency,
 		&invoice.Sender.Name, &invoice.Sender.Street, &invoice.Sender.Zip, &invoice.Sender.City, &invoice.Sender.Country, &invoice.Sender.Email, &invoice.Sender.Phone, &invoice.Sender.TaxID, &invoice.Sender.VatID, &invoice.Sender.TaxNumber, &invoice.Sender.IBAN, &invoice.Sender.BIC, &invoice.Sender.BankName,
 		&invoice.Recipient.Name, &invoice.Recipient.Street, &invoice.Recipient.Zip, &invoice.Recipient.City, &invoice.Recipient.Country, &invoice.Recipient.Email, &invoice.Recipient.Phone, &invoice.Recipient.TaxID,
-		&invoice.VATRate, &invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes, &invoice.OwnerId,
+		&invoice.VATRate, &invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes, &invoice.OwnerID,
 	)
 	if number != "" {
 		invoice.InvoiceNumber = &number
@@ -181,7 +181,7 @@ func (r *PostgresRepository) GetAll(ownerID string) ([]Invoice, error) {
 }
 
 func (r *PostgresRepository) Create(invoice Invoice, ownerID string) (Invoice, error) {
-	invoice.OwnerId = ownerID
+	invoice.OwnerID = ownerID
 
 	ctx := context.Background()
 	tx, err := r.pool.Begin(ctx)
@@ -213,7 +213,7 @@ func insertInvoice(ctx context.Context, tx pgx.Tx, invoice Invoice) error {
 	`, invoice.ID, numberOrEmpty(invoice.InvoiceNumber), invoice.Status, invoice.CreatedAt, invoice.IssuedAt, invoice.PaymentDueAt, invoice.ServiceDate, invoice.Currency,
 		invoice.Sender.Name, invoice.Sender.Street, invoice.Sender.Zip, invoice.Sender.City, invoice.Sender.Country, invoice.Sender.Email, invoice.Sender.Phone, invoice.Sender.TaxID, invoice.Sender.VatID, invoice.Sender.TaxNumber, invoice.Sender.IBAN, invoice.Sender.BIC, invoice.Sender.BankName,
 		invoice.Recipient.Name, invoice.Recipient.Street, invoice.Recipient.Zip, invoice.Recipient.City, invoice.Recipient.Country, invoice.Recipient.Email, invoice.Recipient.Phone, invoice.Recipient.TaxID,
-		invoice.VATRate, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal, invoice.Notes, invoice.OwnerId)
+		invoice.VATRate, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal, invoice.Notes, invoice.OwnerID)
 	return err
 }
 
@@ -273,7 +273,7 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc, ownerID string) (I
 		return Invoice{}, err
 	}
 	updated.ID = existing.ID
-	updated.OwnerId = existing.OwnerId
+	updated.OwnerID = existing.OwnerID
 
 	// owner_id steht bewusst in keinem SET: der Owner ist unveraenderlich. Im
 	// WHERE steht er trotzdem, damit ein falsch gebautes UPDATE keine fremde
@@ -288,7 +288,7 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc, ownerID string) (I
 	`, numberOrEmpty(updated.InvoiceNumber), updated.Status, updated.IssuedAt, updated.PaymentDueAt, updated.ServiceDate, updated.Currency,
 		updated.Sender.Name, updated.Sender.Street, updated.Sender.Zip, updated.Sender.City, updated.Sender.Country, updated.Sender.Email, updated.Sender.Phone, updated.Sender.TaxID, updated.Sender.VatID, updated.Sender.TaxNumber, updated.Sender.IBAN, updated.Sender.BIC, updated.Sender.BankName,
 		updated.Recipient.Name, updated.Recipient.Street, updated.Recipient.Zip, updated.Recipient.City, updated.Recipient.Country, updated.Recipient.Email, updated.Recipient.Phone, updated.Recipient.TaxID,
-		updated.VATRate, updated.NetTotal, updated.VATAmount, updated.GrossTotal, updated.Notes, updated.ID, updated.OwnerId)
+		updated.VATRate, updated.NetTotal, updated.VATAmount, updated.GrossTotal, updated.Notes, updated.ID, updated.OwnerID)
 	if err != nil {
 		return Invoice{}, err
 	}

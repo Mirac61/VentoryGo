@@ -179,7 +179,7 @@ func TestOwnerFromBodyIsIgnored(t *testing.T) {
 	r := tenantRouter(t)
 
 	body := strings.TrimSuffix(strings.TrimSpace(invoiceBody), "}") +
-		`, "ownerId": "` + uuid.NewString() + `", "OwnerId": "` + uuid.NewString() + `"}`
+		`, "ownerId": "` + uuid.NewString() + `", "OwnerID": "` + uuid.NewString() + `"}`
 
 	rec := asUser(r, tokenA, http.MethodPost, "/api/invoices", body)
 	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())

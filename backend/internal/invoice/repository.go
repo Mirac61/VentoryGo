@@ -41,7 +41,7 @@ func (r *Repository) Create(invoice Invoice, ownerID string) (Invoice, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	invoice.OwnerId = ownerID
+	invoice.OwnerID = ownerID
 	stored := cloneInvoice(invoice)
 	r.invoices[stored.ID] = stored
 	return cloneInvoice(stored), nil
@@ -54,7 +54,7 @@ func (r *Repository) GetByID(id string, ownerID string) (Invoice, error) {
 	defer r.mu.RUnlock()
 
 	invoice, ok := r.invoices[id]
-	if !ok || invoice.OwnerId != ownerID {
+	if !ok || invoice.OwnerID != ownerID {
 		return Invoice{}, ErrNotFound
 	}
 	return cloneInvoice(invoice), nil
@@ -66,7 +66,7 @@ func (r *Repository) GetAll(ownerID string) ([]Invoice, error) {
 
 	result := make([]Invoice, 0, len(r.invoices))
 	for _, invoice := range r.invoices {
-		if invoice.OwnerId != ownerID {
+		if invoice.OwnerID != ownerID {
 			continue
 		}
 		result = append(result, cloneInvoice(invoice))
@@ -78,7 +78,7 @@ func (r *Repository) Delete(id string, ownerID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if invoice, ok := r.invoices[id]; !ok || invoice.OwnerId != ownerID {
+	if invoice, ok := r.invoices[id]; !ok || invoice.OwnerID != ownerID {
 		return ErrNotFound
 	}
 	delete(r.invoices, id)
@@ -96,7 +96,7 @@ func (r *Repository) Update(id string, fn UpdateFunc, ownerID string) (Invoice, 
 	defer r.mu.Unlock()
 
 	existing, ok := r.invoices[id]
-	if !ok || existing.OwnerId != ownerID {
+	if !ok || existing.OwnerID != ownerID {
 		return Invoice{}, ErrNotFound
 	}
 
@@ -105,7 +105,7 @@ func (r *Repository) Update(id string, fn UpdateFunc, ownerID string) (Invoice, 
 		return Invoice{}, err
 	}
 	updated.ID = existing.ID
-	updated.OwnerId = existing.OwnerId
+	updated.OwnerID = existing.OwnerID
 
 	stored := cloneInvoice(updated)
 	r.invoices[id] = stored

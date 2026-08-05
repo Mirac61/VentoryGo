@@ -36,7 +36,7 @@ type Invoice struct {
 	VATAmount     Money         `json:"vatAmount"`
 	GrossTotal    Money         `json:"grossTotal"`
 	Notes         string        `json:"notes"`
-	OwnerId       string        `json:"-"`
+	OwnerID       string        `json:"-"`
 }
 
 type Contact struct {

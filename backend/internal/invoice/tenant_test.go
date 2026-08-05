@@ -23,7 +23,7 @@ func TestGetAllReturnsOnlyOwnInvoices(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, mine, 2)
 	for _, invoice := range mine {
-		assert.Equal(t, testOwner, invoice.OwnerId)
+		assert.Equal(t, testOwner, invoice.OwnerID)
 	}
 
 	theirs, err := s.GetAll(otherOwner)
@@ -100,7 +100,7 @@ func TestEmptyOwnerIsRejected(t *testing.T) {
 	assert.ErrorIs(t, err, ErrMissingOwner)
 }
 
-// OwnerId traegt json:"-", der Owner kann also nicht per Request gesetzt werden.
+// OwnerID traegt json:"-", der Owner kann also nicht per Request gesetzt werden.
 // Update rettet ihn zusaetzlich aus dem Bestand, damit auch ein anderer
 // Schreibpfad ihn nicht ueberschreiben kann.
 func TestUpdateKeepsOwner(t *testing.T) {
@@ -110,15 +110,15 @@ func TestUpdateKeepsOwner(t *testing.T) {
 	require.NoError(t, err)
 
 	tampered := draftInvoice()
-	tampered.OwnerId = otherOwner
+	tampered.OwnerID = otherOwner
 
 	updated, err := s.Update(created.ID, tampered, testOwner)
 	require.NoError(t, err)
-	assert.Equal(t, testOwner, updated.OwnerId)
+	assert.Equal(t, testOwner, updated.OwnerID)
 
 	stored, err := s.GetByID(created.ID, testOwner)
 	require.NoError(t, err)
-	assert.Equal(t, testOwner, stored.OwnerId)
+	assert.Equal(t, testOwner, stored.OwnerID)
 
 	_, err = s.GetByID(created.ID, otherOwner)
 	assert.ErrorIs(t, err, ErrNotFound, "die Rechnung darf nicht beim anderen Owner auftauchen")
@@ -138,7 +138,7 @@ func TestPostgresGetAllReturnsOnlyOwnInvoices(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, invoices, 1)
 	assert.Equal(t, mine.ID, invoices[0].ID)
-	assert.Equal(t, owner, invoices[0].OwnerId)
+	assert.Equal(t, owner, invoices[0].OwnerID)
 }
 
 func TestPostgresForeignInvoiceIsNotFound(t *testing.T) {
@@ -215,7 +215,7 @@ func TestPostgresUpdateKeepsOwner(t *testing.T) {
 	created := createPostgresDraft(t, s, repo, owner)
 
 	tampered := draftInvoice()
-	tampered.OwnerId = stranger
+	tampered.OwnerID = stranger
 	_, err := s.Update(created.ID, tampered, owner)
 	require.NoError(t, err)
 
