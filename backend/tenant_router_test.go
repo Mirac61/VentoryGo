@@ -196,5 +196,9 @@ func TestOwnerFromBodyIsIgnored(t *testing.T) {
 	assert.Equal(t, http.StatusOK,
 		asUser(r, tokenA, http.MethodGet, "/api/invoices/"+created.ID, "").Code)
 
-	assert.NotContains(t, rec.Body.String(), "ownerId", "der Owner darf in keiner Antwort auftauchen")
+	// Kleingeschrieben verglichen, damit der Test nicht nur an einer Schreibweise
+	// haengt: faellt json:"-" weg, heisst das Feld "OwnerID", ein Tag koennte es
+	// "ownerId" oder "owner_id" nennen.
+	assert.NotContains(t, strings.ToLower(rec.Body.String()), "owner",
+		"der Owner darf in keiner Antwort auftauchen")
 }

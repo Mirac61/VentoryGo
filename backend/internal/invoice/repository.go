@@ -37,7 +37,14 @@ func (r *Repository) nextCounter(now time.Time) (int, error) {
 	return r.counter, nil
 }
 
+// Ein leerer Owner wird abgewiesen, obwohl der Service ihn schon abfaengt:
+// owner_id ist in Postgres NOT NULL mit Foreign Key, das In-Memory-Repo waere
+// sonst nachsichtiger als die Datenbank, die es in Tests vertritt.
 func (r *Repository) Create(invoice Invoice, ownerID string) (Invoice, error) {
+	if ownerID == "" {
+		return Invoice{}, ErrMissingOwner
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
