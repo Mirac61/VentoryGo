@@ -230,13 +230,13 @@ func (r *PostgresRepository) Delete(id string, ownerID string) error {
 	return nil
 }
 
-func nextInvoiceCounter(ctx context.Context, tx pgx.Tx, now time.Time) (int, error) {
+func nextInvoiceCounter(ctx context.Context, tx pgx.Tx, ownerID string, now time.Time) (int, error) {
 	var counter int
 	err := tx.QueryRow(ctx, `
-		INSERT INTO invoice_counters (year, counter) VALUES ($1, 1)
-		ON CONFLICT (year) DO UPDATE SET counter = invoice_counters.counter + 1
+		INSERT INTO invoice_counters (owner_id, year, counter) VALUES ($1, $2, 1)
+		ON CONFLICT (owner_id, year) DO UPDATE SET counter = invoice_counters.counter + 1
 		RETURNING counter
-	`, now.Year()).Scan(&counter)
+	`, ownerID, now.Year()).Scan(&counter)
 	if err != nil {
 		return 0, err
 	}
@@ -265,7 +265,7 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc, ownerID string) (I
 	}
 
 	nextCounter := func(now time.Time) (int, error) {
-		return nextInvoiceCounter(ctx, tx, now)
+		return nextInvoiceCounter(ctx, tx, existing.OwnerID, now)
 	}
 
 	updated, err := fn(existing, nextCounter)

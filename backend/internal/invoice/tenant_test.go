@@ -2,6 +2,8 @@ package invoice
 
 import (
 	"context"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -180,14 +182,10 @@ func TestPostgresSameInvoiceNumberForDifferentOwners(t *testing.T) {
 	stranger := seedUser(t, pool)
 
 	const year = 2994
-	claimCounterYears(t, pool, year)
 
 	first := createPostgresDraft(t, s, repo, owner)
 	second := createPostgresDraft(t, s, repo, stranger)
 
-	// Beide Rechnungen ziehen aus demselben globalen Zaehler, weil der
-	// Nummernkreis pro Mandant erst mit #50 kommt. Fuer diesen Test wird die
-	// zweite Nummer deshalb direkt gesetzt.
 	s.now = func() time.Time {
 		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
 	}
@@ -195,9 +193,10 @@ func TestPostgresSameInvoiceNumberForDifferentOwners(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)
 
-	_, err = pool.Exec(context.Background(),
-		`UPDATE invoices SET invoice_number = $1 WHERE id = $2`, *issued.InvoiceNumber, second.ID)
+	issuedByStranger, err := s.Issue(second.ID, stranger)
 	require.NoError(t, err, "dieselbe Nummer muss fuer einen anderen Owner erlaubt sein")
+	require.NotNil(t, issuedByStranger.InvoiceNumber)
+	require.Equal(t, *issued.InvoiceNumber, *issuedByStranger.InvoiceNumber)
 
 	var count int
 	require.NoError(t, pool.QueryRow(context.Background(),
@@ -223,4 +222,89 @@ func TestPostgresUpdateKeepsOwner(t *testing.T) {
 	require.NoError(t, pool.QueryRow(context.Background(),
 		`SELECT owner_id FROM invoices WHERE id = $1`, created.ID).Scan(&stored))
 	assert.Equal(t, owner, stored, "owner_id darf von einem PUT nicht angefasst werden")
+}
+
+func TestPostgresIssue_CounterRunsPerOwner(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	stranger := seedUser(t, pool)
+
+	const year = 2993
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+	}
+
+	// Abwechselnd ausstellen: aus einem gemeinsamen Zaehler bekaeme jede Reihe
+	// nur jede zweite Nummer.
+	for want := 1; want <= 3; want++ {
+		for _, id := range []string{owner, stranger} {
+			draft := createPostgresDraft(t, s, repo, id)
+			issued, err := s.Issue(draft.ID, id)
+			require.NoError(t, err)
+			require.NotNil(t, issued.InvoiceNumber)
+			assert.Equalf(t, want, counterOf(t, *issued.InvoiceNumber),
+				"owner %s bekam %q", id, *issued.InvoiceNumber)
+		}
+	}
+
+	assert.Equal(t, 3, readCounter(t, pool, owner, year))
+	assert.Equal(t, 3, readCounter(t, pool, stranger, year))
+}
+
+func TestPostgresIssue_ConcurrentIssuesOfTwoOwnersStayInTheirOwnRange(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owners := []string{seedUser(t, pool), seedUser(t, pool)}
+
+	const perOwner = 25
+	const year = 2992
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+	}
+
+	type issue struct {
+		owner string
+		id    string
+	}
+	work := make([]issue, 0, len(owners)*perOwner)
+	for _, owner := range owners {
+		for range perOwner {
+			work = append(work, issue{owner: owner, id: createPostgresDraft(t, s, repo, owner).ID})
+		}
+	}
+
+	numbers := make([]string, len(work))
+	errs := make([]error, len(work))
+
+	var wg sync.WaitGroup
+	for i, w := range work {
+		wg.Go(func() {
+			issued, err := s.Issue(w.id, w.owner)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			numbers[i] = *issued.InvoiceNumber
+		})
+	}
+	wg.Wait()
+
+	drawn := map[string][]int{}
+	for i, err := range errs {
+		require.NoErrorf(t, err, "issue %d fehlgeschlagen", i)
+		drawn[work[i].owner] = append(drawn[work[i].owner], counterOf(t, numbers[i]))
+	}
+
+	want := make([]int, 0, perOwner)
+	for i := 1; i <= perOwner; i++ {
+		want = append(want, i)
+	}
+	for _, owner := range owners {
+		counters := drawn[owner]
+		slices.Sort(counters)
+		assert.Equalf(t, want, counters, "owner %s muss 1..%d ohne Luecken ziehen", owner, perOwner)
+	}
 }
