@@ -5,10 +5,12 @@ set -euo pipefail
 while read -r _local_ref local_sha _remote_ref _remote_sha; do
   [[ "$local_sha" =~ ^0+$ ]] && continue
   subject=$(git log -1 --format=%s "$local_sha")
-  if [[ "${subject,,}" == wip* ]]; then
-    echo "wip-Commit (\"$subject\") — Pruefungen uebersprungen"
-    exit 0
-  fi
+  case "$subject" in
+    [Ww][Ii][Pp]*)
+      echo "wip-Commit (\"$subject\") — Pruefungen uebersprungen"
+      exit 0
+      ;;
+  esac
 done
 
 cd "$(git rev-parse --show-toplevel)/backend"

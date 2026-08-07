@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -400,4 +401,27 @@ func TestPostgresIssue_BrokenTimezoneFailsWithoutConsumingANumber(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, StatusDraft, stored.Status)
 	assert.Nil(t, stored.InvoiceNumber)
+}
+
+func TestUsersRejectEmptyNumberingColumns(t *testing.T) {
+	pool := testPool(t)
+	owner := seedUser(t, pool)
+
+	tests := map[string]struct {
+		query      string
+		constraint string
+	}{
+		"number_prefix": {`UPDATE users SET number_prefix = '' WHERE id = $1`, "users_number_prefix_not_empty"},
+		"timezone":      {`UPDATE users SET timezone = '' WHERE id = $1`, "users_timezone_not_empty"},
+	}
+	for column, tc := range tests {
+		t.Run(column, func(t *testing.T) {
+			_, err := pool.Exec(context.Background(), tc.query, owner)
+
+			var pgErr *pgconn.PgError
+			require.ErrorAsf(t, err, &pgErr, "ein leeres %s muss die DB abweisen", column)
+			assert.Equal(t, "23514", pgErr.Code, "check_violation")
+			assert.Equal(t, tc.constraint, pgErr.ConstraintName)
+		})
+	}
 }
