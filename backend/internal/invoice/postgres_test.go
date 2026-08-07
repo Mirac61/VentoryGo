@@ -172,7 +172,7 @@ func TestPostgresIssue_ConcurrentDrawsDistinctNumbers(t *testing.T) {
 		drafts = append(drafts, createPostgresDraft(t, s, repo, owner))
 	}
 	s.now = func() time.Time {
-		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
 	}
 
 	numbers := make([]string, workers)
@@ -222,11 +222,11 @@ func TestPostgresIssue_RollbackDoesNotConsumeNumber(t *testing.T) {
 	failing := createPostgresDraft(t, s, repo, owner)
 	next := createPostgresDraft(t, s, repo, owner)
 
-	issuedAt := time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+	issuedAt := time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
 	s.now = func() time.Time { return issuedAt }
 
 	boom := errors.New("boom")
-	_, err := repo.Update(failing.ID, func(_ Invoice, nextCounter func(time.Time) (int, error)) (Invoice, error) {
+	_, err := repo.Update(failing.ID, func(_ Invoice, _ Numbering, nextCounter func(time.Time) (int, error)) (Invoice, error) {
 		if _, err := nextCounter(issuedAt); err != nil {
 			return Invoice{}, err
 		}
@@ -259,13 +259,13 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 	first := createPostgresDraft(t, s, repo, owner)
 
 	s.now = func() time.Time {
-		return time.Date(oldYear, 12, 31, 23, 59, 0, 0, s.numbering.Location)
+		return time.Date(oldYear, 12, 31, 23, 59, 0, 0, DefaultNumbering().Location)
 	}
 	issuedLast, err := s.Issue(last.ID, owner)
 	require.NoError(t, err)
 
 	s.now = func() time.Time {
-		return time.Date(newYear, 1, 1, 0, 1, 0, 0, s.numbering.Location)
+		return time.Date(newYear, 1, 1, 0, 1, 0, 0, DefaultNumbering().Location)
 	}
 	issuedFirst, err := s.Issue(first.ID, owner)
 	require.NoError(t, err)
@@ -280,7 +280,7 @@ func TestPostgresIssue_ResetsCounterOnNewYear(t *testing.T) {
 		stored, err := repo.GetByID(id, owner)
 		require.NoError(t, err)
 		require.NotNil(t, stored.InvoiceNumber)
-		assert.Equalf(t, yearOf(t, *stored.InvoiceNumber), stored.IssuedAt.In(s.numbering.Location).Year(),
+		assert.Equalf(t, yearOf(t, *stored.InvoiceNumber), stored.IssuedAt.In(DefaultNumbering().Location).Year(),
 			"number %q and issued_at must agree on the year", *stored.InvoiceNumber)
 	}
 }

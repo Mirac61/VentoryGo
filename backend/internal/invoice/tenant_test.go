@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -187,7 +188,7 @@ func TestPostgresSameInvoiceNumberForDifferentOwners(t *testing.T) {
 	second := createPostgresDraft(t, s, repo, stranger)
 
 	s.now = func() time.Time {
-		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
 	}
 	issued, err := s.Issue(first.ID, owner)
 	require.NoError(t, err)
@@ -233,7 +234,7 @@ func TestPostgresIssue_CounterRunsPerOwner(t *testing.T) {
 
 	const year = 2993
 	s.now = func() time.Time {
-		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
 	}
 
 	// Abwechselnd ausstellen: aus einem gemeinsamen Zaehler bekaeme jede Reihe
@@ -262,7 +263,7 @@ func TestPostgresIssue_ConcurrentIssuesOfTwoOwnersStayInTheirOwnRange(t *testing
 	const perOwner = 25
 	const year = 2992
 	s.now = func() time.Time {
-		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
 	}
 
 	type issue struct {
@@ -307,4 +308,96 @@ func TestPostgresIssue_ConcurrentIssuesOfTwoOwnersStayInTheirOwnRange(t *testing
 		slices.Sort(counters)
 		assert.Equalf(t, want, counters, "owner %s muss 1..%d ohne Luecken ziehen", owner, perOwner)
 	}
+}
+
+func setUserNumbering(t *testing.T, pool *pgxpool.Pool, ownerID, prefix, timezone string) {
+	t.Helper()
+
+	_, err := pool.Exec(context.Background(),
+		`UPDATE users SET number_prefix = $1, timezone = $2 WHERE id = $3`, prefix, timezone, ownerID)
+	require.NoError(t, err)
+}
+
+func TestPostgresIssue_NumberCarriesOwnPrefix(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	stranger := seedUser(t, pool)
+	setUserNumbering(t, pool, owner, "RG", "Europe/Berlin")
+
+	const year = 2991
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
+	}
+
+	draft := createPostgresDraft(t, s, repo, owner)
+	issued, err := s.Issue(draft.ID, owner)
+	require.NoError(t, err)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Equal(t, "RG-2991-0001", *issued.InvoiceNumber)
+
+	otherDraft := createPostgresDraft(t, s, repo, stranger)
+	otherIssued, err := s.Issue(otherDraft.ID, stranger)
+	require.NoError(t, err)
+	require.NotNil(t, otherIssued.InvoiceNumber)
+	assert.Equal(t, "INV-2991-0001", *otherIssued.InvoiceNumber,
+		"ein Nutzer ohne eigenes Prefix bleibt beim Spaltendefault")
+}
+
+func TestPostgresIssue_OwnersInDifferentZonesDrawFromDifferentYears(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	berliner := seedUser(t, pool)
+	kiwi := seedUser(t, pool)
+	setUserNumbering(t, pool, kiwi, "INV", "Pacific/Auckland")
+
+	const oldYear, newYear = 2989, 2990
+
+	berlinDraft := createPostgresDraft(t, s, repo, berliner)
+	kiwiDraft := createPostgresDraft(t, s, repo, kiwi)
+
+	// Noon UTC on New Year's Eve is still the old year in Berlin, already the new one in Auckland.
+	s.now = func() time.Time {
+		return time.Date(oldYear, 12, 31, 12, 0, 0, 0, time.UTC)
+	}
+
+	berlinIssued, err := s.Issue(berlinDraft.ID, berliner)
+	require.NoError(t, err)
+	require.NotNil(t, berlinIssued.InvoiceNumber)
+	assert.Equal(t, "INV-2989-0001", *berlinIssued.InvoiceNumber)
+
+	kiwiIssued, err := s.Issue(kiwiDraft.ID, kiwi)
+	require.NoError(t, err)
+	require.NotNil(t, kiwiIssued.InvoiceNumber)
+	assert.Equal(t, "INV-2990-0001", *kiwiIssued.InvoiceNumber)
+
+	assert.Equal(t, 1, readCounter(t, pool, berliner, oldYear))
+	assert.Equal(t, 0, readCounter(t, pool, berliner, newYear))
+	assert.Equal(t, 1, readCounter(t, pool, kiwi, newYear))
+	assert.Equal(t, 0, readCounter(t, pool, kiwi, oldYear))
+}
+
+func TestPostgresIssue_BrokenTimezoneFailsWithoutConsumingANumber(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	setUserNumbering(t, pool, owner, "INV", "Europe/Nirgendwo")
+
+	const year = 2988
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
+	}
+
+	draft := createPostgresDraft(t, s, repo, owner)
+	_, err := s.Issue(draft.ID, owner)
+	require.Error(t, err, "eine kaputte Zone in der DB darf nicht paniken")
+
+	assert.Equal(t, 0, readCounter(t, pool, owner, year))
+	stored, err := repo.GetByID(draft.ID, owner)
+	require.NoError(t, err)
+	assert.Equal(t, StatusDraft, stored.Status)
+	assert.Nil(t, stored.InvoiceNumber)
 }

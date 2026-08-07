@@ -21,11 +21,6 @@ func main() {
 	defer pool.Close()
 	log.Println("connected to database successfully")
 
-	numbering, err := invoice.NumberingFromEnv()
-	if err != nil {
-		log.Fatalf("failed to read invoice numbering config: %v", err)
-	}
-
 	cookieSecure, err := auth.CookieSecureFromEnv()
 	if err != nil {
 		log.Fatalf("failed to read cookie config: %v", err)
@@ -37,7 +32,7 @@ func main() {
 	}
 
 	repo := invoice.NewPostgresRepository(pool)
-	service := invoice.NewServiceWithNumbering(repo, numbering)
+	service := invoice.NewService(repo)
 	handler := invoice.NewHandler(service)
 	authRepo := auth.NewPostgresRepository(pool)
 	sessionStore := auth.NewPostgresSessionStore(pool)

@@ -268,7 +268,17 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc, ownerID string) (I
 		return nextInvoiceCounter(ctx, tx, existing.OwnerID, now)
 	}
 
-	updated, err := fn(existing, nextCounter)
+	var prefix, timezone string
+	err = tx.QueryRow(ctx, `SELECT number_prefix, timezone FROM users WHERE id = $1`, existing.OwnerID).Scan(&prefix, &timezone)
+	if err != nil {
+		return Invoice{}, err
+	}
+	numbering, err := NewNumbering(prefix, timezone)
+	if err != nil {
+		return Invoice{}, err
+	}
+
+	updated, err := fn(existing, numbering, nextCounter)
 	if err != nil {
 		return Invoice{}, err
 	}
