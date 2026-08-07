@@ -2,9 +2,13 @@ package invoice
 
 import (
 	"context"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -180,24 +184,21 @@ func TestPostgresSameInvoiceNumberForDifferentOwners(t *testing.T) {
 	stranger := seedUser(t, pool)
 
 	const year = 2994
-	claimCounterYears(t, pool, year)
 
 	first := createPostgresDraft(t, s, repo, owner)
 	second := createPostgresDraft(t, s, repo, stranger)
 
-	// Beide Rechnungen ziehen aus demselben globalen Zaehler, weil der
-	// Nummernkreis pro Mandant erst mit #50 kommt. Fuer diesen Test wird die
-	// zweite Nummer deshalb direkt gesetzt.
 	s.now = func() time.Time {
-		return time.Date(year, 6, 1, 12, 0, 0, 0, s.numbering.Location)
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
 	}
 	issued, err := s.Issue(first.ID, owner)
 	require.NoError(t, err)
 	require.NotNil(t, issued.InvoiceNumber)
 
-	_, err = pool.Exec(context.Background(),
-		`UPDATE invoices SET invoice_number = $1 WHERE id = $2`, *issued.InvoiceNumber, second.ID)
+	issuedByStranger, err := s.Issue(second.ID, stranger)
 	require.NoError(t, err, "dieselbe Nummer muss fuer einen anderen Owner erlaubt sein")
+	require.NotNil(t, issuedByStranger.InvoiceNumber)
+	require.Equal(t, *issued.InvoiceNumber, *issuedByStranger.InvoiceNumber)
 
 	var count int
 	require.NoError(t, pool.QueryRow(context.Background(),
@@ -223,4 +224,204 @@ func TestPostgresUpdateKeepsOwner(t *testing.T) {
 	require.NoError(t, pool.QueryRow(context.Background(),
 		`SELECT owner_id FROM invoices WHERE id = $1`, created.ID).Scan(&stored))
 	assert.Equal(t, owner, stored, "owner_id darf von einem PUT nicht angefasst werden")
+}
+
+func TestPostgresIssue_CounterRunsPerOwner(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	stranger := seedUser(t, pool)
+
+	const year = 2993
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
+	}
+
+	// Abwechselnd ausstellen: aus einem gemeinsamen Zaehler bekaeme jede Reihe
+	// nur jede zweite Nummer.
+	for want := 1; want <= 3; want++ {
+		for _, id := range []string{owner, stranger} {
+			draft := createPostgresDraft(t, s, repo, id)
+			issued, err := s.Issue(draft.ID, id)
+			require.NoError(t, err)
+			require.NotNil(t, issued.InvoiceNumber)
+			assert.Equalf(t, want, counterOf(t, *issued.InvoiceNumber),
+				"owner %s bekam %q", id, *issued.InvoiceNumber)
+		}
+	}
+
+	assert.Equal(t, 3, readCounter(t, pool, owner, year))
+	assert.Equal(t, 3, readCounter(t, pool, stranger, year))
+}
+
+func TestPostgresIssue_ConcurrentIssuesOfTwoOwnersStayInTheirOwnRange(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owners := []string{seedUser(t, pool), seedUser(t, pool)}
+
+	const perOwner = 25
+	const year = 2992
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
+	}
+
+	type issue struct {
+		owner string
+		id    string
+	}
+	work := make([]issue, 0, len(owners)*perOwner)
+	for _, owner := range owners {
+		for range perOwner {
+			work = append(work, issue{owner: owner, id: createPostgresDraft(t, s, repo, owner).ID})
+		}
+	}
+
+	numbers := make([]string, len(work))
+	errs := make([]error, len(work))
+
+	var wg sync.WaitGroup
+	for i, w := range work {
+		wg.Go(func() {
+			issued, err := s.Issue(w.id, w.owner)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			numbers[i] = *issued.InvoiceNumber
+		})
+	}
+	wg.Wait()
+
+	drawn := map[string][]int{}
+	for i, err := range errs {
+		require.NoErrorf(t, err, "issue %d fehlgeschlagen", i)
+		drawn[work[i].owner] = append(drawn[work[i].owner], counterOf(t, numbers[i]))
+	}
+
+	want := make([]int, 0, perOwner)
+	for i := 1; i <= perOwner; i++ {
+		want = append(want, i)
+	}
+	for _, owner := range owners {
+		counters := drawn[owner]
+		slices.Sort(counters)
+		assert.Equalf(t, want, counters, "owner %s muss 1..%d ohne Luecken ziehen", owner, perOwner)
+	}
+}
+
+func setUserNumbering(t *testing.T, pool *pgxpool.Pool, ownerID, prefix, timezone string) {
+	t.Helper()
+
+	_, err := pool.Exec(context.Background(),
+		`UPDATE users SET number_prefix = $1, timezone = $2 WHERE id = $3`, prefix, timezone, ownerID)
+	require.NoError(t, err)
+}
+
+func TestPostgresIssue_NumberCarriesOwnPrefix(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	stranger := seedUser(t, pool)
+	setUserNumbering(t, pool, owner, "RG", "Europe/Berlin")
+
+	const year = 2991
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
+	}
+
+	draft := createPostgresDraft(t, s, repo, owner)
+	issued, err := s.Issue(draft.ID, owner)
+	require.NoError(t, err)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Equal(t, "RG-2991-0001", *issued.InvoiceNumber)
+
+	otherDraft := createPostgresDraft(t, s, repo, stranger)
+	otherIssued, err := s.Issue(otherDraft.ID, stranger)
+	require.NoError(t, err)
+	require.NotNil(t, otherIssued.InvoiceNumber)
+	assert.Equal(t, "INV-2991-0001", *otherIssued.InvoiceNumber,
+		"ein Nutzer ohne eigenes Prefix bleibt beim Spaltendefault")
+}
+
+func TestPostgresIssue_OwnersInDifferentZonesDrawFromDifferentYears(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	berliner := seedUser(t, pool)
+	kiwi := seedUser(t, pool)
+	setUserNumbering(t, pool, kiwi, "INV", "Pacific/Auckland")
+
+	const oldYear, newYear = 2989, 2990
+
+	berlinDraft := createPostgresDraft(t, s, repo, berliner)
+	kiwiDraft := createPostgresDraft(t, s, repo, kiwi)
+
+	// Noon UTC on New Year's Eve is still the old year in Berlin, already the new one in Auckland.
+	s.now = func() time.Time {
+		return time.Date(oldYear, 12, 31, 12, 0, 0, 0, time.UTC)
+	}
+
+	berlinIssued, err := s.Issue(berlinDraft.ID, berliner)
+	require.NoError(t, err)
+	require.NotNil(t, berlinIssued.InvoiceNumber)
+	assert.Equal(t, "INV-2989-0001", *berlinIssued.InvoiceNumber)
+
+	kiwiIssued, err := s.Issue(kiwiDraft.ID, kiwi)
+	require.NoError(t, err)
+	require.NotNil(t, kiwiIssued.InvoiceNumber)
+	assert.Equal(t, "INV-2990-0001", *kiwiIssued.InvoiceNumber)
+
+	assert.Equal(t, 1, readCounter(t, pool, berliner, oldYear))
+	assert.Equal(t, 0, readCounter(t, pool, berliner, newYear))
+	assert.Equal(t, 1, readCounter(t, pool, kiwi, newYear))
+	assert.Equal(t, 0, readCounter(t, pool, kiwi, oldYear))
+}
+
+func TestPostgresIssue_BrokenTimezoneFailsWithoutConsumingANumber(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	setUserNumbering(t, pool, owner, "INV", "Europe/Nirgendwo")
+
+	const year = 2988
+	s.now = func() time.Time {
+		return time.Date(year, 6, 1, 12, 0, 0, 0, DefaultNumbering().Location)
+	}
+
+	draft := createPostgresDraft(t, s, repo, owner)
+	_, err := s.Issue(draft.ID, owner)
+	require.Error(t, err, "eine kaputte Zone in der DB darf nicht paniken")
+
+	assert.Equal(t, 0, readCounter(t, pool, owner, year))
+	stored, err := repo.GetByID(draft.ID, owner)
+	require.NoError(t, err)
+	assert.Equal(t, StatusDraft, stored.Status)
+	assert.Nil(t, stored.InvoiceNumber)
+}
+
+func TestUsersRejectEmptyNumberingColumns(t *testing.T) {
+	pool := testPool(t)
+	owner := seedUser(t, pool)
+
+	tests := map[string]struct {
+		query      string
+		constraint string
+	}{
+		"number_prefix": {`UPDATE users SET number_prefix = '' WHERE id = $1`, "users_number_prefix_not_empty"},
+		"timezone":      {`UPDATE users SET timezone = '' WHERE id = $1`, "users_timezone_not_empty"},
+	}
+	for column, tc := range tests {
+		t.Run(column, func(t *testing.T) {
+			_, err := pool.Exec(context.Background(), tc.query, owner)
+
+			var pgErr *pgconn.PgError
+			require.ErrorAsf(t, err, &pgErr, "ein leeres %s muss die DB abweisen", column)
+			assert.Equal(t, "23514", pgErr.Code, "check_violation")
+			assert.Equal(t, tc.constraint, pgErr.ConstraintName)
+		})
+	}
 }

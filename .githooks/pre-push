@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# A tip commit whose subject starts with "wip" pushes an unfinished state through.
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  [[ "$local_sha" =~ ^0+$ ]] && continue
+  subject=$(git log -1 --format=%s "$local_sha")
+  case "$subject" in
+    [Ww][Ii][Pp]*)
+      echo "wip-Commit (\"$subject\") — Pruefungen uebersprungen"
+      exit 0
+      ;;
+  esac
+done
+
 cd "$(git rev-parse --show-toplevel)/backend"
 
 if [ -f .env ]; then
