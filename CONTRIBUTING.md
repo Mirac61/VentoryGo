@@ -85,7 +85,8 @@ cd frontend && npm run lint && npm run build
 
 Ansonsten:
 
-- Bezeichner, Kommentare und Commit-Messages auf Englisch
+- Bezeichner, Kommentare und Commit-Messages auf Englisch. Ausgenommen sind Testnamen und
+  Assertion-Meldungen, die bleiben deutsch
 - Kommentare nur, wenn das *Warum* nicht offensichtlich ist. Was der Code tut, steht im Code
 - Keine Abkürzungen, keine Füllwörter wie `Manager` oder `Helper` im Namen
 - Booleans als Prädikat: `isPaid`, `hasLineItems`
