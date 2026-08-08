@@ -9,29 +9,38 @@ import formStyles from '../auth/components/authForm.module.css'
 
 const MIN_PASSWORD_LENGTH = 12
 
+// Backend liefert bei 422 validator-Tags, keine Texte (z.B. "email", "min").
+// Übersetzung hier zentral, damit Field-Komponenten nur Anzeigetext sehen.
+function fieldErrorMessage(field: string, tag: string): string {
+    if (field === 'email' && tag === 'email') return 'Bitte eine gültige E-Mail-Adresse angeben'
+    if (field === 'email' && tag === 'required') return 'E-Mail ist erforderlich'
+    if (field === 'password' && tag === 'min') return `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein`
+    if (field === 'password' && tag === 'required') return 'Passwort ist erforderlich'
+    return 'Ungültige Eingabe'
+}
+
 export default function Register() {
     const { register } = useAuth()
     const navigate = useNavigate()
 
-    const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [passwordConfirm, setPasswordConfirm] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+    const [passwordConfirmError, setPasswordConfirmError] = useState<string | undefined>()
 
-    function validateClientSide(): Record<string, string> {
-        const errors: Record<string, string> = {}
-
-        if (password.length < MIN_PASSWORD_LENGTH) {
-            errors.password = `Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein`
-        }
+    function validateClientSide(): boolean {
+        // Nur der Client-only-Check (Passwörter stimmen überein) — die
+        // Mindestlänge prüft der Server ohnehin per 422, doppelte Prüfung hier
+        // würde nur zu abweichender Fehlertext-Quelle führen.
         if (passwordConfirm !== password) {
-            errors.passwordConfirm = 'Passwörter stimmen nicht überein'
+            setPasswordConfirmError('Passwörter stimmen nicht überein')
+            return false
         }
-
-        return errors
+        setPasswordConfirmError(undefined)
+        return true
     }
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -39,23 +48,21 @@ export default function Register() {
         if (submitting) return
 
         setError(null)
-
-        // Client-seitige Prüfung ist nur ein UX-Vorteil (früheres Feedback) —
-        // der Server bleibt trotzdem die Instanz, die letztlich entscheidet.
-        const clientErrors = validateClientSide()
-        if (Object.keys(clientErrors).length > 0) {
-            setFieldErrors(clientErrors)
-            return
-        }
         setFieldErrors({})
+
+        if (!validateClientSide()) return
 
         setSubmitting(true)
         try {
-            await register(name, email, password)
+            await register(email, password)
             navigate('/dashboard', { replace: true })
         } catch (err) {
             if (err instanceof ApiError && err.status === 422 && err.fieldErrors) {
-                setFieldErrors(err.fieldErrors)
+                const messages: Record<string, string> = {}
+                for (const [field, tag] of Object.entries(err.fieldErrors)) {
+                    messages[field] = fieldErrorMessage(field, tag)
+                }
+                setFieldErrors(messages)
             } else {
                 setError(registerErrorMessage(err))
             }
@@ -76,15 +83,6 @@ export default function Register() {
             }
         >
             <form onSubmit={handleSubmit} noValidate>
-                <Field
-                    label="Name"
-                    type="text"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    error={fieldErrors.name}
-                    required
-                />
                 <Field
                     label="E-Mail"
                     type="email"
@@ -110,7 +108,7 @@ export default function Register() {
                     autoComplete="new-password"
                     value={passwordConfirm}
                     onChange={(e) => setPasswordConfirm(e.target.value)}
-                    error={fieldErrors.passwordConfirm}
+                    error={passwordConfirmError}
                     required
                 />
 

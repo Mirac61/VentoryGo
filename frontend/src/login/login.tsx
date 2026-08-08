@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../auth/api'
 import { loginErrorMessage } from '../auth/errorMessages'
 import { AuthCard } from '../auth/components/AuthCard'
 import { Field } from '../auth/components/Field'
@@ -16,7 +15,6 @@ export default function Login() {
     const [password, setPassword] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -24,18 +22,13 @@ export default function Login() {
 
         setSubmitting(true)
         setError(null)
-        setFieldErrors({})
 
         try {
             await login(email, password)
             const redirectTo = (location.state as { from?: Location })?.from?.pathname ?? '/dashboard'
             navigate(redirectTo, { replace: true })
         } catch (err) {
-            if (err instanceof ApiError && err.status === 422 && err.fieldErrors) {
-                setFieldErrors(err.fieldErrors)
-            } else {
-                setError(loginErrorMessage(err))
-            }
+            setError(loginErrorMessage(err))
         } finally {
             setSubmitting(false)
         }
@@ -59,7 +52,6 @@ export default function Login() {
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    error={fieldErrors.email}
                     required
                 />
                 <Field
@@ -68,7 +60,6 @@ export default function Login() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    error={fieldErrors.password}
                     required
                 />
 

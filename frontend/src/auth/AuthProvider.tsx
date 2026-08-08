@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { AuthContext, type User } from './AuthContext.ts'
-import { api, setUnauthorizedHandler } from './api.ts'
+import { AuthContext, type User } from './AuthContext'
+import { api, setUnauthorizedHandler } from './api'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -18,13 +18,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => setUnauthorizedHandler(null)
     }, [])
 
+    async function refreshMe() {
+        // GET /api/auth/me liefert den User direkt (kein { user: ... }-Wrapper),
+        // siehe Handler.Me: c.JSON(http.StatusOK, user).
+        const me = await api<User>('/api/auth/me', { method: 'GET', skipUnauthorizedRedirect: true })
+        setUser(me)
+        return me
+    }
+
     useEffect(() => {
         let cancelled = false
 
-        api<User>('/api/auth/me', { skipUnauthorizedRedirect: true })
-            .then((me) => {
-                if (!cancelled) setUser(me)
-            })
+        refreshMe()
             .catch(() => {
                 if (!cancelled) setUser(null)
             })
@@ -35,22 +40,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => {
             cancelled = true
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     async function login(email: string, password: string) {
-        const me = await api<User>('/api/auth/login', {
+        // Login liefert 204 ohne Body (siehe Handler.Login) — der Cookie ist
+        // gesetzt, aber wer angemeldet ist, muss separat über /me geholt werden.
+        await api<void>('/api/auth/login', {
             method: 'POST',
             body: { email, password },
         })
-        setUser(me)
+        await refreshMe()
     }
 
-    async function register(name: string, email: string, password: string) {
-        const me = await api<User>('/api/auth/register', {
+    async function register(email: string, password: string) {
+        // Register liefert 201 + User direkt (kein Wrapper, kein Cookie/Login).
+        await api<User>('/api/auth/register', {
             method: 'POST',
-            body: { name, email, password },
+            body: { email, password },
         })
-        setUser(me)
+        // Registrierung meldet nicht automatisch an — kein Cookie wird gesetzt
+        // (Handler.Register ruft service.Register, nicht service.Login).
+        // Ticket-AC "kein zweiter manueller Login" ist damit NICHT erfüllt durch
+        // den aktuellen Backend-Code. Sobald bestätigt/geändert: hier anpassen.
+        await login(email, password)
     }
 
     async function logout() {
@@ -60,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-    {children}
-    </AuthContext.Provider>
-)
+            {children}
+        </AuthContext.Provider>
+    )
 }
