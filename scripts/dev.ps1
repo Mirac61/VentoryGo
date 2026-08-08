@@ -129,6 +129,19 @@ if (-not (Test-Path $modules) -or
 
 # --- Start -------------------------------------------------------------------
 
+# mprocs gibt jedem Prozess einen eigenen scrollbaren Bereich und ein eigenes
+# Pseudo-Terminal. Dadurch bleiben die Farben von Gin und Vite erhalten, die über die
+# umgeleiteten Streams im Fallback unten verloren gehen. Optional, damit das Skript ohne
+# zusätzliche Installation funktioniert.
+if (Get-Command mprocs -ErrorAction SilentlyContinue) {
+    Write-Log 'Starte in getrennten Bereichen (mprocs).'
+    mprocs --config (Join-Path $root 'mprocs.yaml')
+    exit $LASTEXITCODE
+}
+
+Write-Log 'Tipp: mit mprocs bekommt jeder Prozess einen eigenen Bereich und seine Farben zurück.'
+Write-Log "      Installieren z.B. mit 'pnpm add -g mprocs' oder 'npm i -g mprocs'."
+
 $processes = @()
 
 function Start-Prefixed($tag, $color, $directory, $command, $commandArgs) {

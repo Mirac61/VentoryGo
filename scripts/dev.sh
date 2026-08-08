@@ -130,6 +130,19 @@ fi
 
 # --- Start -------------------------------------------------------------------
 
+# mprocs gibt jedem Prozess einen eigenen scrollbaren Bereich und ein eigenes
+# Pseudo-Terminal. Dadurch bleiben die Farben von Gin und Vite erhalten, die durch die
+# Pipe des Fallbacks unten verloren gehen. Optional, damit das Skript ohne zusätzliche
+# Installation funktioniert.
+if command -v mprocs >/dev/null 2>&1; then
+    log "Starte in getrennten Bereichen (mprocs)."
+    exec mprocs --config "$ROOT/mprocs.yaml"
+fi
+
+log "Tipp: mit mprocs bekommt jeder Prozess einen eigenen Bereich und seine Farben zurück."
+log "      Installieren z.B. mit 'pnpm add -g mprocs' — 'npm i -g' braucht je nach"
+log "      Node-Installation Schreibrechte auf /usr/local."
+
 run_prefixed() {
     tag="$1"
     color="$2"
