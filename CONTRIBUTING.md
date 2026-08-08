@@ -23,7 +23,8 @@ Backend und Frontend mit getrennt beschrifteter Ausgabe daneben. Strg-C beendet 
 .\scripts\dev.ps1     # Windows (PowerShell 7)
 ```
 
-Von Hand geht es weiterhin so:
+Was die Skripte im Einzelnen tun und was die häufigen Fehlermeldungen bedeuten, steht in
+[`scripts/README.md`](scripts/README.md). Von Hand geht es weiterhin so:
 
 ```bash
 docker compose up -d postgres
