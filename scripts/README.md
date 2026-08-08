@@ -9,6 +9,9 @@ Ein Befehl fährt den kompletten Stack hoch. Welches Skript, hängt vom Betriebs
 
 Beide tun dasselbe in derselben Reihenfolge. Wer eines ändert, ändert das andere mit —
 sonst driften die Plattformen auseinander und niemand merkt es, bis es jemanden trifft.
+Dazu gehört auch, `backend/.env` in beiden als Schlüssel-Wert-Datei zu lesen statt sie
+als Shell-Code auszuführen: Sonst ist ein unquotierter Wert mit Leerzeichen unter Bash
+ein Kommandoaufruf und unter PowerShell einfach ein Wert.
 
 Strg-C beendet Backend und Frontend. Postgres bleibt absichtlich stehen: Es startet
 langsamer als der Rest, und beim nächsten Lauf ist es dann sofort bereit.
@@ -57,6 +60,7 @@ Ausgabe in einem Terminal.
 |---|---|
 | `Port 8080 ist belegt` | Ein Backend aus einem früheren Lauf lebt noch. `pkill -f "go run"`, unter Windows `taskkill /IM backend.exe /T /F`. |
 | `.env fehlt` | Die Datei ist nicht im Repo, weil sie Zugangsdaten enthält. Der `cp`-Befehl steht in der Meldung. |
+| `DATABASE_URL fehlt oder ist leer` | `backend/.env` existiert, aber unvollständig — meist eine aus `.env.example` kopierte Datei, in der die Werte noch nicht gesetzt wurden. |
 | `Postgres wurde nicht healthy` | `docker compose logs postgres` sagt warum. Meist ein Passwort, das nicht zum bestehenden Volume passt. |
 | `Failed to resolve import` in Vite | `node_modules` ist älter als der Branch. Das Skript fängt das ab; von Hand: `cd frontend && npm ci`. |
 | `failed to connect to database: /tmp/.s.PGSQL.5432` | `DATABASE_URL` war nicht gesetzt. `go run .` liest **keine** `.env`, `main.go` ruft nur `os.Getenv`. Das Skript setzt sie; von Hand braucht es `set -a; . ./backend/.env; set +a`. |

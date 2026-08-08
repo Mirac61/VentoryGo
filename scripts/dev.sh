@@ -81,10 +81,42 @@ fi
 # `go run .` liest keine .env: main.go ruft nur os.Getenv. Ohne das hier fällt pgx auf
 # die libpq-Defaults zurück und meldet einen Unix-Socket-Fehler, der nach einem
 # kaputten Postgres aussieht.
-set -a
-# shellcheck disable=SC1091
-. ./backend/.env
-set +a
+#
+# Gelesen statt gesourct: `. ./backend/.env` würde den Inhalt als Bash ausführen, ein
+# unquotierter Wert mit Leerzeichen wäre dann ein Kommandoaufruf. dev.ps1 parst
+# ebenfalls, damit sich beide Skripte gleich verhalten.
+load_env_file() {
+    while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+        line="${raw_line#"${raw_line%%[![:space:]]*}"}"
+        case "$line" in ''|'#'*) continue ;; esac
+
+        line="${line#export }"
+        key="${line%%=*}"
+        value="${line#*=}"
+        case "$line" in *=*) ;; *) continue ;; esac
+
+        # Nur echte Variablennamen, damit eine kaputte Zeile nichts Unerwartetes setzt.
+        case "$key" in
+            [A-Za-z_]*) ;;
+            *) continue ;;
+        esac
+        case "$key" in *[!A-Za-z0-9_]*) continue ;; esac
+
+        # Umschließende Anführungszeichen entfernen, innere unangetastet lassen.
+        case "$value" in
+            \"*\") value="${value#\"}"; value="${value%\"}" ;;
+            \'*\') value="${value#\'}"; value="${value%\'}" ;;
+        esac
+
+        export "$key=$value"
+    done < "$1"
+}
+
+load_env_file ./backend/.env
+
+# Eine vorhandene, aber unvollständige .env würde sonst erst bei der Migration auffallen
+# -- mit einer Meldung, die auf Postgres zeigt statt auf die Konfiguration.
+[ -n "${DATABASE_URL:-}" ] || fail "DATABASE_URL fehlt oder ist leer in backend/.env. Vorlage: backend/.env.example"
 
 # --- Postgres ----------------------------------------------------------------
 

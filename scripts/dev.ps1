@@ -75,6 +75,12 @@ foreach ($line in Get-Content 'backend\.env') {
     [Environment]::SetEnvironmentVariable($key, $value, 'Process')
 }
 
+# Eine vorhandene, aber unvollständige .env würde sonst erst bei der Migration auffallen -
+# mit einer Meldung, die auf Postgres zeigt statt auf die Konfiguration.
+if (-not $backendEnv['DATABASE_URL']) {
+    Stop-WithError 'DATABASE_URL fehlt oder ist leer in backend\.env. Vorlage: backend\.env.example'
+}
+
 # --- Postgres ----------------------------------------------------------------
 
 Write-Log 'Postgres starten ...'
