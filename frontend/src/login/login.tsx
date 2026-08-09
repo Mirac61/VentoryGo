@@ -63,10 +63,6 @@ export default function Login() {
                     required
                 />
 
-                <a href="#" className={formStyles.forgotPassword}>
-                    Passwort vergessen?
-                </a>
-
                 <button type="submit" className={formStyles.submit} disabled={submitting}>
                     {submitting ? 'Wird angemeldet …' : 'Anmelden'}
                 </button>

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../auth/api'
+import { PostRegisterLoginError } from '../auth/AuthProvider'
 import { registerErrorMessage } from '../auth/errorMessages'
 import { AuthCard } from '../auth/components/AuthCard'
 import { Field } from '../auth/components/Field'
@@ -57,7 +58,11 @@ export default function Register() {
             await register(email, password)
             navigate('/dashboard', { replace: true })
         } catch (err) {
-            if (err instanceof ApiError && err.status === 422 && err.fieldErrors) {
+            if (err instanceof PostRegisterLoginError) {
+                // Konto existiert bereits — kein Registrierungsfehler. Nutzer soll
+                // sich manuell anmelden, nicht denken, das Konto sei nicht entstanden.
+                setError('Konto wurde erstellt, die automatische Anmeldung ist aber fehlgeschlagen. Bitte melde dich manuell an.')
+            } else if (err instanceof ApiError && err.status === 422 && err.fieldErrors) {
                 const messages: Record<string, string> = {}
                 for (const [field, tag] of Object.entries(err.fieldErrors)) {
                     messages[field] = fieldErrorMessage(field, tag)
