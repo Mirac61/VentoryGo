@@ -9,6 +9,15 @@
 // (serve serviert nur den angegebenen Ordner und alles darunter, nichts
 // darüber — dasselbe Prinzip wie Vites fs.allow-Einschränkung).
 //
+// Relative Asset-Pfade (styles.css, images/...) in landing/index.html
+// funktionieren unabhängig davon, unter welcher URL die Seite aufgerufen
+// wird, weil index.html selbst ein <base href="/landing/"> setzt — NICHT
+// über URL-Rewriting hier im Proxy. Ein früherer Versuch, "/" serverseitig
+// auf /landing/index.html umzuschreiben, führte zu einer Redirect-Schleife
+// und/oder falscher Asset-Basis, weil der Browser die tatsächlich
+// aufgerufene URL für relative Pfade nutzt, nicht den intern
+// umgeschriebenen Pfad.
+//
 // Nutzung:
 //   node proxy.js
 //
@@ -18,8 +27,10 @@
 //
 // Routing:
 //   /login, /register, /dashboard, /api/*  → :5173 (Frontend/Vite)
-//   /                                       → :4173/landing/index.html
-//   alles andere (shared/, landing/*)       → :4173 (Landing/Assets, unverändert)
+//   alles andere                            → :4173 (Landing Page + Assets, unverändert)
+//
+// Aufruf lokal: http://localhost:8090/landing/ (mit Slash) für die Landing
+// Page, damit die Browser-Basis-URL von Anfang an stimmt.
 
 const http = require('node:http')
 
@@ -43,28 +54,9 @@ function targetFor(url) {
         : { host: LANDING_HOST, port: LANDING_PORT }
 }
 
-// `serve` läuft jetzt im Repo-Root, die Landing Page liegt unter
-// landing/index.html. Sowohl "/" als auch "/landing" und "/landing/" werden
-// serverseitig direkt auf /landing/index.html aufgelöst — bewusst KEIN
-// Redirect an den Browser, das hatte mit serves eigenem Verzeichnis-Handling
-// zu einer Redirect-Schleife geführt. Relative Assets in index.html
-// (styles.css, images/...) funktionieren trotzdem korrekt, weil der Browser
-// die tatsächlich aufgerufene URL (/landing oder /landing/) als Basis nimmt,
-// nicht den intern umgeschriebenen Pfad.
-function resolveLandingPath(url) {
-    if (url === '/' || url === '/landing' || url === '/landing/') {
-        return '/landing/index.html'
-    }
-    return url
-}
-
 function proxyRequest(clientReq, clientRes) {
-    if (isFrontendPath(clientReq.url)) {
-        return proxyTo(clientReq, clientRes, { host: FRONTEND_HOST, port: FRONTEND_PORT }, clientReq.url)
-    }
-
-    const path = resolveLandingPath(clientReq.url)
-    proxyTo(clientReq, clientRes, { host: LANDING_HOST, port: LANDING_PORT }, path)
+    const target = targetFor(clientReq.url)
+    proxyTo(clientReq, clientRes, target, clientReq.url)
 }
 
 function proxyTo(clientReq, clientRes, target, path) {
@@ -107,7 +99,7 @@ server.on('upgrade', (req, clientSocket, head) => {
         headers: req.headers,
     })
 
-    upstreamReq.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
+    upstreamReq.on('upgrade', (upstreamRes, upstreamSocket) => {
         clientSocket.write(
             `HTTP/1.1 101 Switching Protocols\r\n` +
             Object.entries(upstreamRes.headers)
@@ -115,7 +107,10 @@ server.on('upgrade', (req, clientSocket, head) => {
                 .join('\r\n') +
             '\r\n\r\n',
         )
-        upstreamSocket.write(upstreamHead)
+        // `head` ist der bereits vom Client gelesene Rest nach dem Handshake und
+        // gehört an den UPSTREAM weitergereicht, nicht umgekehrt (vorher waren
+        // head/upstreamHead vertauscht, `head` wurde nie verwendet).
+        upstreamSocket.write(head)
         upstreamSocket.pipe(clientSocket)
         clientSocket.pipe(upstreamSocket)
     })

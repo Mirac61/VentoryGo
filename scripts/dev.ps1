@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-    Startet den kompletten Dev-Stack: Postgres, Migrationen, Backend, Frontend.
+    Startet den kompletten Dev-Stack: Postgres, Migrationen, Backend, Frontend, Landing Page, Dev-Proxy.
 .DESCRIPTION
     Windows-Gegenstück zu dev.sh. Beide Skripte machen dasselbe in derselben
     Reihenfolge; Änderungen an einem gehören ins andere.
@@ -14,6 +14,8 @@ Set-Location $root
 
 $backendPort = 8080
 $frontendPort = 5173
+$landingPort = 4173
+$proxyPort = 8090
 
 function Write-Log($message) { Write-Host "[dev] $message" -ForegroundColor Green }
 function Stop-WithError($message) { Write-Host "[dev] $message" -ForegroundColor Red; exit 1 }
@@ -47,6 +49,7 @@ function Test-PortInUse($port) {
 Assert-Command docker 'Docker Desktop starten.'
 Assert-Command go 'Go installieren: https://go.dev/dl/'
 Assert-Command npm 'Node installieren: https://nodejs.org/'
+Assert-Command node 'Node installieren: https://nodejs.org/'
 
 Assert-File '.env' 'copy .env.example .env'
 Assert-File 'backend\.env' 'copy backend\.env.example backend\.env'
@@ -56,6 +59,12 @@ if (Test-PortInUse $backendPort) {
 }
 if (Test-PortInUse $frontendPort) {
     Write-Log "Port $frontendPort ist belegt - Vite weicht auf einen anderen aus."
+}
+if (Test-PortInUse $landingPort) {
+    Stop-WithError "Port $landingPort ist belegt. Läuft noch eine alte Landing Page?"
+}
+if (Test-PortInUse $proxyPort) {
+    Stop-WithError "Port $proxyPort ist belegt. Läuft noch ein alter Dev-Proxy?"
 }
 
 # `go run .` liest keine .env: main.go ruft nur os.Getenv. Ohne das hier fällt pgx auf
@@ -125,7 +134,7 @@ if ($LASTEXITCODE -ne 0) { Stop-WithError 'Migrationen sind fehlgeschlagen.' }
 $modules = Join-Path $root 'frontend\node_modules'
 $manifest = Join-Path $root 'frontend\package.json'
 if (-not (Test-Path $modules) -or
-    (Get-Item $manifest).LastWriteTime -gt (Get-Item $modules).LastWriteTime) {
+        (Get-Item $manifest).LastWriteTime -gt (Get-Item $modules).LastWriteTime) {
     Write-Log 'Frontend-Abhängigkeiten sind veraltet, npm ci läuft ...'
     Push-Location 'frontend'
     npm ci
@@ -139,6 +148,9 @@ if (-not (Test-Path $modules) -or
 # Pseudo-Terminal. Dadurch bleiben die Farben von Gin und Vite erhalten, die über die
 # umgeleiteten Streams im Fallback unten verloren gehen. Optional, damit das Skript ohne
 # zusätzliche Installation funktioniert.
+#
+# Landing Page und Dev-Proxy sind in mprocs.yaml als eigene Prozesse hinterlegt
+# (landing, proxy) -- mprocs startet sie automatisch mit, kein Zutun hier nötig.
 if (Get-Command mprocs -ErrorAction SilentlyContinue) {
     Write-Log 'Starte in getrennten Bereichen (mprocs).'
     mprocs --config (Join-Path $root 'mprocs.yaml')
@@ -180,16 +192,28 @@ function Start-Prefixed($tag, $color, $directory, $command, $commandArgs) {
 
 try {
     $processes += Start-Prefixed 'backend' 'Cyan' 'backend' 'go' 'run .'
-    $processes += Start-Prefixed 'frontend' 'Green' 'frontend' 'npm.cmd' 'run dev'
+    # `npm` löst auf diesem System zu npm.ps1 auf (Get-Command npm bestätigt
+    # das), nicht zu npm.cmd. cmd.exe kennt aber nur .cmd/.bat/.exe und würde
+    # bei der PATH-Suche eine andere, hier nicht funktionierende npm.cmd
+    # treffen ("Cannot find module ...npm-prefix.js" mit falsch
+    # zusammengesetztem Pfad). powershell.exe -Command nutzt exakt denselben
+    # Auflösungsmechanismus wie ein manuell getipptes `npm run dev` und trifft
+    # daher zuverlässig npm.ps1.
+    $processes += Start-Prefixed 'frontend' 'Green' 'frontend' 'powershell.exe' '-NoProfile -Command "npm run dev"'
+    # Landing Page läuft im Repo-Root (nicht landing/), sonst kein Zugriff auf
+    # den Geschwisterordner shared/fonts/. cwd '.' entspricht $root selbst.
+    $processes += Start-Prefixed 'landing' 'Magenta' '.' 'powershell.exe' "-NoProfile -Command `"npx serve . -l $landingPort`""
+    $processes += Start-Prefixed 'proxy' 'Yellow' 'dev-proxy' 'node' 'proxy.js'
 
-    Write-Log "Backend auf :$backendPort, Frontend auf :$frontendPort. Beenden mit Strg-C."
+    Write-Log "Backend auf :$backendPort, Frontend auf :$frontendPort, Landing auf :$landingPort, Proxy auf :$proxyPort."
+    Write-Log "Alles zusammen erreichbar unter http://localhost:$proxyPort. Beenden mit Strg-C."
 
-    # Sobald einer der beiden weg ist, soll auch der andere gehen - ein halber Stack
+    # Sobald einer der vier weg ist, sollen auch die anderen gehen - ein halber Stack
     # hilft niemandem.
     while (-not ($processes | Where-Object { $_.HasExited })) {
         Start-Sleep -Seconds 1
     }
-    Write-Log 'Ein Prozess hat sich beendet - der andere wird gestoppt.'
+    Write-Log 'Ein Prozess hat sich beendet - die anderen werden gestoppt.'
 } finally {
     # Stop-Process beendet nur den Prozess selbst. `go run` startet die kompilierte
     # Binärdatei als Enkelkind, das sonst überlebt und Port 8080 belegt hält; taskkill
