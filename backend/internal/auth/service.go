@@ -31,7 +31,7 @@ func SessionTTLFromEnv() (time.Duration, error) {
 }
 
 var dummyHash = sync.OnceValue(func() string {
-	hash, _ := HashPassword("dummy")
+	hash, _ := hashPassword("dummy")
 	return hash
 })
 
@@ -45,17 +45,25 @@ type Service struct {
 	repo       userRepository
 	sessions   SessionStore
 	sessionTTL time.Duration
+	hasher     *Hasher
 }
 
 func NewService(repo userRepository, sessions SessionStore) *Service {
-	return NewServiceWithSessionTTL(repo, sessions, defaultSessionTTL)
+	hasher, err := NewHasher(defaultHashConcurrency())
+	if err != nil {
+		panic(fmt.Sprintf("auth: %v", err))
+	}
+	return NewServiceWithSessionTTL(repo, sessions, defaultSessionTTL, hasher)
 }
 
-func NewServiceWithSessionTTL(repo userRepository, sessions SessionStore, ttl time.Duration) *Service {
+func NewServiceWithSessionTTL(repo userRepository, sessions SessionStore, ttl time.Duration, hasher *Hasher) *Service {
 	if sessions == nil {
 		panic("auth: sessions store is nil")
 	}
-	return &Service{repo: repo, sessions: sessions, sessionTTL: ttl}
+	if hasher == nil {
+		panic("auth: hasher is nil")
+	}
+	return &Service{repo: repo, sessions: sessions, sessionTTL: ttl, hasher: hasher}
 }
 
 func normalizeEmail(email string) string {
@@ -64,8 +72,7 @@ func normalizeEmail(email string) string {
 
 func (s *Service) Register(ctx context.Context, email, password string) (User, error) {
 	email = normalizeEmail(email)
-
-	hash, err := HashPassword(password)
+	hash, err := s.hasher.Hash(ctx, password)
 	if err != nil {
 		return User{}, fmt.Errorf("hash password: %w", err)
 	}
@@ -87,13 +94,13 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	user, err := s.repo.FindByEmail(ctx, normalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			_ = VerifyPassword(dummyHash(), password)
+			_ = s.hasher.Verify(ctx, dummyHash(), password)
 			return User{}, "", ErrInvalidCredentials
 		}
 		return User{}, "", fmt.Errorf("find user: %w", err)
 	}
 
-	if err := VerifyPassword(user.PasswordHash, password); err != nil {
+	if err := s.hasher.Verify(ctx, user.PasswordHash, password); err != nil {
 		if errors.Is(err, ErrMismatchedPassword) {
 			return User{}, "", ErrInvalidCredentials
 		}

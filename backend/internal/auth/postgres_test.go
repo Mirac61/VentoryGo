@@ -46,7 +46,7 @@ func testEmail(local string) string {
 func newTestUser(t *testing.T, email string) User {
 	t.Helper()
 
-	hash, err := HashPassword("correct horse battery")
+	hash, err := hashPassword("correct horse battery")
 	require.NoError(t, err)
 
 	return User{

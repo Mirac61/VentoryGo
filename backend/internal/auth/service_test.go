@@ -68,9 +68,11 @@ func TestSessionTTLFromEnv(t *testing.T) {
 
 func TestLoginUsesConfiguredSessionTTL(t *testing.T) {
 	store := &fakeSessionStore{}
-	service := NewServiceWithSessionTTL(&fakeRepo{}, store, time.Second)
+	hasher, err := NewHasher(1)
+	require.NoError(t, err)
+	service := NewServiceWithSessionTTL(&fakeRepo{}, store, time.Second, hasher)
 
-	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	_, err = service.Register(context.Background(), "max@example.com", "correct horse battery")
 	require.NoError(t, err)
 	_, _, err = service.Login(context.Background(), "max@example.com", "correct horse battery")
 	require.NoError(t, err)

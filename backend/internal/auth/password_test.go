@@ -1,15 +1,77 @@
 package auth
 
 import (
+	"context"
+	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func TestHasherNeedsPositiveConcurrency(t *testing.T) {
+	for _, concurrency := range []int{0, -1} {
+		hasher, err := NewHasher(concurrency)
+		assert.Error(t, err, "concurrency=%d", concurrency)
+		assert.Nil(t, hasher, "concurrency=%d", concurrency)
+	}
+}
+
+func TestHasherKeepsConcurrentWorkBelowLimit(t *testing.T) {
+	const limit = 3
+	hasher, err := NewHasher(limit)
+	require.NoError(t, err)
+
+	var inFlight, peak atomic.Int64
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			require.NoError(t, hasher.acquire(context.Background()))
+			defer func() { <-hasher.sem }()
+
+			current := inFlight.Add(1)
+			for {
+				max := peak.Load()
+				if current <= max || peak.CompareAndSwap(max, current) {
+					break
+				}
+			}
+			time.Sleep(time.Millisecond)
+			inFlight.Add(-1)
+		}()
+	}
+	wg.Wait()
+
+	assert.LessOrEqual(t, peak.Load(), int64(limit))
+}
+
+func TestHashAndVerifyGoThroughTheSemaphore(t *testing.T) {
+	hasher, err := NewHasher(1)
+	require.NoError(t, err)
+	hasher.sem <- struct{}{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	hash, err := hasher.Hash(ctx, "correct horse battery")
+	assert.True(t, errors.Is(err, context.DeadlineExceeded))
+	assert.Empty(t, hash)
+	assert.True(t, errors.Is(hasher.Verify(ctx, dummyHash(), "correct horse battery"), context.DeadlineExceeded))
+
+	<-hasher.sem
+	hash, err = hasher.Hash(context.Background(), "correct horse battery")
+	require.NoError(t, err)
+	assert.NoError(t, hasher.Verify(context.Background(), hash, "correct horse battery"))
+}
+
 func TestHashPasswordFormat(t *testing.T) {
-	hash, err := HashPassword("correct horse battery")
+	hash, err := hashPassword("correct horse battery")
 	require.NoError(t, err)
 
 	// Ohne testify waere das: if !strings.HasPrefix(...) { t.Errorf(...) }
@@ -19,30 +81,30 @@ func TestHashPasswordFormat(t *testing.T) {
 func TestVerifyPasswordAcceptsCorrectPassword(t *testing.T) {
 	const pw = "correct horse battery"
 
-	hash, err := HashPassword(pw)
+	hash, err := hashPassword(pw)
 	require.NoError(t, err)
 
-	assert.NoError(t, VerifyPassword(hash, pw))
+	assert.NoError(t, verifyPassword(hash, pw))
 }
 
 func TestVerifyPasswordRejectsWrongPassword(t *testing.T) {
-	hash, err := HashPassword("correct horse battery")
+	hash, err := hashPassword("correct horse battery")
 	require.NoError(t, err)
 
-	assert.ErrorIs(t, VerifyPassword(hash, "falsch"), ErrMismatchedPassword)
+	assert.ErrorIs(t, verifyPassword(hash, "falsch"), ErrMismatchedPassword)
 }
 
 // Gleiches Passwort, zwei Aufrufe, zwei verschiedene Hashes: der Salt wirkt.
 func TestHashPasswordUsesFreshSalt(t *testing.T) {
 	const pw = "correct horse battery"
 
-	first, err := HashPassword(pw)
+	first, err := hashPassword(pw)
 	require.NoError(t, err)
-	second, err := HashPassword(pw)
+	second, err := hashPassword(pw)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first, second)
-	assert.NoError(t, VerifyPassword(second, pw))
+	assert.NoError(t, verifyPassword(second, pw))
 }
 
 func TestVerifyPasswordRejectsMalformedHash(t *testing.T) {
@@ -55,6 +117,6 @@ func TestVerifyPasswordRejectsMalformedHash(t *testing.T) {
 		"$argon2id$v=19$m=19456,t=2,p=1$$aGFzaA",
 		"$argon2id$v=19$m=19456,t=2,p=1$$",
 	} {
-		assert.ErrorIs(t, VerifyPassword(hash, "egal"), ErrInvalidHash, "hash=%q", hash)
+		assert.ErrorIs(t, verifyPassword(hash, "egal"), ErrInvalidHash, "hash=%q", hash)
 	}
 }
