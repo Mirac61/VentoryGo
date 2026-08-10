@@ -32,6 +32,27 @@ log()  { printf "${GREEN}[load]${RESET} %s\n" "$1"; }
 warn() { printf "${YELLOW}[load]${RESET} %s\n" "$1"; }
 fail() { printf "${RED}[load]${RESET} %s\n" "$1" >&2; exit 1; }
 
+# Im Postgres-Container zeigt das localhost aus der DSN auf genau diese Datenbank,
+# deshalb laesst sich DATABASE_URL unveraendert weiterreichen.
+cleanup() {
+    if [ -n "${sampler_pid:-}" ]; then kill "$sampler_pid" 2>/dev/null || true; fi
+    if [ -n "${server_pid:-}" ]; then kill "$server_pid" 2>/dev/null || true; fi
+
+    if [ -n "${users_created:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+        log "raeume Testnutzer ab"
+        if docker compose exec -T postgres psql "$DATABASE_URL" \
+            -c "DELETE FROM users WHERE email LIKE 'loadtest-%@example.com';" >/dev/null 2>&1; then
+            log "Testnutzer geloescht"
+        else
+            warn "Aufraeumen fehlgeschlagen. Von Hand:"
+            warn "  DELETE FROM users WHERE email LIKE 'loadtest-%@example.com';"
+        fi
+    fi
+
+    rm -rf "$WORK"
+}
+trap cleanup EXIT
+
 cat <<'WARNUNG'
 
   Dieser Lauf fährt Argon2id über Minuten auf allen Kernen aus.
@@ -62,12 +83,11 @@ esac
 export COOKIE_SECURE=false
 export GIN_MODE=release
 
-trap 'rm -rf "$WORK"' EXIT
-
 log "baue Server und Lastgenerator"
 (cd backend && go build -o "$WORK/server" . && go build -o "$WORK/loader" ./cmd/loadtest)
 
 tag="$(date +%H%M%S)"
+users_created=yes
 
 # Der Server wird pro Messpunkt neu gestartet: RSS ist eine Hochwassermarke, ohne
 # Neustart trüge jeder Messpunkt die Spitze des vorherigen mit sich herum.
@@ -102,19 +122,10 @@ for level in $LEVELS; do
 
     kill "$sampler_pid" 2>/dev/null || true
     wait "$sampler_pid" 2>/dev/null || true
+    sampler_pid=""
     kill "$server_pid" 2>/dev/null || true
     wait "$server_pid" 2>/dev/null || true
+    server_pid=""
 
     printf '%s rss=%s MiB\n' "$result" "$(( $(cat "$WORK/peak") / 1024 ))"
 done
-
-# Im Postgres-Container zeigt das localhost aus der DSN auf genau diese Datenbank,
-# deshalb laesst sich DATABASE_URL unveraendert weiterreichen.
-log "raeume Testnutzer ab"
-if docker compose exec -T postgres psql "$DATABASE_URL" \
-    -c "DELETE FROM users WHERE email LIKE 'loadtest-%@example.com';" >/dev/null 2>&1; then
-    log "Testnutzer geloescht"
-else
-    warn "Aufraeumen fehlgeschlagen. Von Hand:"
-    warn "  DELETE FROM users WHERE email LIKE 'loadtest-%@example.com';"
-fi

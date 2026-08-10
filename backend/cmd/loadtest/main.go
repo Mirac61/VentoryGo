@@ -9,8 +9,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -38,7 +40,8 @@ func main() {
 		codes     sync.Map
 	)
 
-	deadline := time.Now().Add(*duration)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(*duration))
+	defer cancel()
 	start := time.Now()
 
 	var wg sync.WaitGroup
@@ -46,22 +49,37 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			client := &http.Client{Timeout: time.Minute}
-			for time.Now().Before(deadline) {
+			client := &http.Client{}
+			for ctx.Err() == nil {
 				body := fmt.Sprintf(`{"email":"%s-%s-%d-%d@example.com","password":"correct horse battery"}`,
 					EmailPrefix, *tag, worker, counter.Add(1))
 
-				sent := time.Now()
-				resp, err := client.Post(*url, "application/json", bytes.NewBufferString(body))
-				took := time.Since(sent)
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, *url, bytes.NewBufferString(body))
 				if err != nil {
 					failed.Add(1)
+					return
+				}
+				req.Header.Set("Content-Type", "application/json")
+
+				sent := time.Now()
+				resp, err := client.Do(req)
+				took := time.Since(sent)
+				if err != nil {
+					if ctx.Err() == nil {
+						failed.Add(1)
+					}
 					continue
 				}
-				resp.Body.Close()
+
+				_, readErr := io.Copy(io.Discard, resp.Body)
+				closeErr := resp.Body.Close()
 
 				count, _ := codes.LoadOrStore(resp.StatusCode, new(atomic.Int64))
 				count.(*atomic.Int64).Add(1)
+
+				if resp.StatusCode >= 400 || ((readErr != nil || closeErr != nil) && ctx.Err() == nil) {
+					failed.Add(1)
+				}
 
 				mu.Lock()
 				latencies = append(latencies, took)
