@@ -169,7 +169,7 @@ func TestUpdate_IssuedNumberSurvivesTampering(t *testing.T) {
 	stored, err := repo.GetByID(issued.ID, testOwner)
 	require.NoError(t, err)
 	stored.Status = StatusDraft
-	_, err = repo.Update(stored.ID, func(Invoice, func(time.Time) (int, error)) (Invoice, error) {
+	_, err = repo.Update(stored.ID, func(Invoice, Numbering, func(time.Time) (int, error)) (Invoice, error) {
 		return stored, nil
 	}, testOwner)
 	require.NoError(t, err)
@@ -465,4 +465,31 @@ func TestIssue_NumberAndIssuedAtAgreeOnTheYear(t *testing.T) {
 	require.NotNil(t, issued.InvoiceNumber)
 	assert.Equal(t, "INV-2026-0001", *issued.InvoiceNumber)
 	assert.Equal(t, 2026, issued.IssuedAt.Year())
+}
+
+func TestIssue_UsesTheNumberingOfTheOwner(t *testing.T) {
+	repo := NewRepository()
+	auckland, err := NewNumbering("RG", "Pacific/Auckland")
+	require.NoError(t, err)
+	repo.SetNumbering(testOwner, auckland)
+
+	s := NewService(repo)
+	mine := seedDraftInvoice(t, s)
+	theirs, err := s.Create(draftInvoice(), otherOwner)
+	require.NoError(t, err)
+
+	s.now = func() time.Time {
+		return time.Date(2025, 12, 31, 12, 0, 0, 0, time.UTC)
+	}
+
+	issued, err := s.Issue(mine.ID, testOwner)
+	require.NoError(t, err)
+	require.NotNil(t, issued.InvoiceNumber)
+	assert.Equal(t, "RG-2026-0001", *issued.InvoiceNumber)
+
+	issuedOther, err := s.Issue(theirs.ID, otherOwner)
+	require.NoError(t, err)
+	require.NotNil(t, issuedOther.InvoiceNumber)
+	assert.Equal(t, "INV-2025-0001", *issuedOther.InvoiceNumber,
+		"ohne eigene Numbering gelten die Defaults, und der Zaehler laeuft getrennt")
 }

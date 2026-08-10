@@ -2,7 +2,6 @@ package invoice
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	// Das Nummernjahr hängt an einer echten Zeitzone, deshalb die Zonendaten
@@ -28,24 +27,14 @@ func DefaultNumbering() Numbering {
 	return Numbering{Prefix: defaultNumberPrefix, Location: location}
 }
 
-func NumberingFromEnv() (Numbering, error) {
-	numbering := DefaultNumbering()
-
-	if prefix := os.Getenv("INVOICE_NUMBER_PREFIX"); prefix != "" {
-		numbering.Prefix = prefix
-	}
-
-	if name := os.Getenv("INVOICE_TIMEZONE"); name != "" {
-		location, err := time.LoadLocation(name)
-		if err != nil {
-			return Numbering{}, fmt.Errorf("invalid INVOICE_TIMEZONE %q: %w", name, err)
-		}
-		numbering.Location = location
-	}
-
-	return numbering, nil
-}
-
 func (n Numbering) Format(year, counter int) string {
 	return fmt.Sprintf("%s-%d-%04d", n.Prefix, year, counter)
+}
+
+func NewNumbering(prefix, timezone string) (Numbering, error) {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return Numbering{}, fmt.Errorf("invalid timezone %q: %w", timezone, err)
+	}
+	return Numbering{Prefix: prefix, Location: location}, nil
 }

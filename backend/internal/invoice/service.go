@@ -18,9 +18,9 @@ type invoiceRepository interface {
 }
 
 type Service struct {
-	repo      invoiceRepository
-	numbering Numbering
-	now       func() time.Time
+	repo invoiceRepository
+
+	now func() time.Time
 }
 
 type MissingFieldsError struct {
@@ -28,11 +28,7 @@ type MissingFieldsError struct {
 }
 
 func NewService(repo invoiceRepository) *Service {
-	return NewServiceWithNumbering(repo, DefaultNumbering())
-}
-
-func NewServiceWithNumbering(repo invoiceRepository, numbering Numbering) *Service {
-	return &Service{repo: repo, numbering: numbering, now: time.Now}
+	return &Service{repo: repo, now: time.Now}
 }
 
 func prepareItems(items []LineItem) {
@@ -161,7 +157,7 @@ func (s *Service) Update(id string, replacement Invoice, ownerID string) (Invoic
 	if ownerID == "" {
 		return Invoice{}, ErrMissingOwner
 	}
-	mutate := func(invoice Invoice, _ func(time.Time) (int, error)) (Invoice, error) {
+	mutate := func(invoice Invoice, _ Numbering, _ func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrNotUpdatable
 		}
@@ -189,7 +185,7 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch, ownerID string) (
 	if ownerID == "" {
 		return Invoice{}, ErrMissingOwner
 	}
-	mutate := func(invoice Invoice, _ func(time.Time) (int, error)) (Invoice, error) {
+	mutate := func(invoice Invoice, _ Numbering, _ func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrNotUpdatable
 		}
@@ -223,7 +219,7 @@ func (s *Service) Issue(id string, ownerID string) (Invoice, error) {
 	if ownerID == "" {
 		return Invoice{}, ErrMissingOwner
 	}
-	return s.repo.Update(id, func(invoice Invoice, nextCounter func(time.Time) (int, error)) (Invoice, error) {
+	return s.repo.Update(id, func(invoice Invoice, numbering Numbering, nextCounter func(time.Time) (int, error)) (Invoice, error) {
 		if invoice.Status != StatusDraft {
 			return Invoice{}, ErrInvalidTransition
 		}
@@ -233,12 +229,12 @@ func (s *Service) Issue(id string, ownerID string) (Invoice, error) {
 
 		// Nummer und issuedAt kommen aus demselben Zeitpunkt, sonst kann das
 		// Jahr in der Nummer am Silvesterabend vom Jahr in issuedAt abweichen.
-		now := s.now().In(s.numbering.Location).Truncate(time.Microsecond)
+		now := s.now().In(numbering.Location).Truncate(time.Microsecond)
 		counter, err := nextCounter(now)
 		if err != nil {
 			return Invoice{}, err
 		}
-		number := s.numbering.Format(now.Year(), counter)
+		number := numbering.Format(now.Year(), counter)
 
 		invoice.Status = StatusIssued
 		invoice.IssuedAt = now

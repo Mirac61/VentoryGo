@@ -15,10 +15,20 @@ cp backend/.env.example backend/.env  # DSNs für go run / go test auf dem Host
 Das Passwort muss in beiden Dateien identisch sein. Sonderzeichen in den `*_URL`-Variablen
 prozent-kodieren (`@` → `%40`), sonst scheitert schon das Parsen des DSN.
 
-Danach:
+Danach reicht ein Befehl — er startet Postgres, spielt die Migrationen ein und hängt
+Backend und Frontend mit getrennt beschrifteter Ausgabe daneben. Strg-C beendet alles:
+
+```bash
+./scripts/dev.sh      # Linux, macOS
+.\scripts\dev.ps1     # Windows (PowerShell 7)
+```
+
+Was die Skripte im Einzelnen tun und was die häufigen Fehlermeldungen bedeuten, steht in
+[`scripts/README.md`](scripts/README.md). Von Hand geht es weiterhin so:
 
 ```bash
 docker compose up -d postgres
+set -a; . ./backend/.env; set +a          # go run und migrate lesen keine .env
 migrate -path backend/migrations -database "$DATABASE_URL" up
 cd backend && go run .     # :8080
 cd frontend && npm install && npm run dev
@@ -85,7 +95,8 @@ cd frontend && npm run lint && npm run build
 
 Ansonsten:
 
-- Bezeichner, Kommentare und Commit-Messages auf Englisch
+- Bezeichner, Kommentare und Commit-Messages auf Englisch. Ausgenommen sind Testnamen und
+  Assertion-Meldungen, die bleiben deutsch
 - Kommentare nur, wenn das *Warum* nicht offensichtlich ist. Was der Code tut, steht im Code
 - Keine Abkürzungen, keine Füllwörter wie `Manager` oder `Helper` im Namen
 - Booleans als Prädikat: `isPaid`, `hasLineItems`

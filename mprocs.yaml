@@ -1,0 +1,23 @@
+# Getrennte, scrollbare Bereiche statt einer gemeinsamen Ausgabe. Wird von
+# scripts/dev.sh und scripts/dev.ps1 benutzt, sobald mprocs installiert ist.
+#
+# Jeder Prozess läuft in einem Pseudo-Terminal, deshalb bleiben die Farben von Gin und
+# Vite erhalten -- durch eine Pipe schalten beide sie ab.
+#
+# Die Tastenbelegung blendet mprocs selbst ein. Die Umgebung aus backend/.env hat das
+# aufrufende Skript bereits gesetzt und wird vererbt.
+
+procs:
+  backend:
+    shell: go run .
+    cwd: backend
+
+  frontend:
+    shell: npm run dev
+    cwd: frontend
+
+  docker:
+    shell: docker stats
+    # Läuft erst auf Zuruf: docker stats zeichnet sich sekündlich neu und hat im
+    # Hintergrund keinen Nutzen.
+    autostart: false
