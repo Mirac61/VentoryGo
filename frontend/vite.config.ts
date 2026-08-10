@@ -6,6 +6,11 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
     plugins: [react()],
     server: {
+        // dev-proxy/proxy.js leitet fest auf 5173. Ohne strictPort würde Vite bei
+        // belegtem Port stillschweigend auf 5174 ausweichen und der Proxy liefe
+        // ins Leere — lieber laut scheitern als ein halb funktionierender Stack.
+        port: 5173,
+        strictPort: true,
         proxy: {
             '/api': {
                 target: 'http://localhost:8080',

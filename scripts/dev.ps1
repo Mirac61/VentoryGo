@@ -58,7 +58,7 @@ if (Test-PortInUse $backendPort) {
     Stop-WithError "Port $backendPort ist belegt. Läuft noch ein altes Backend?"
 }
 if (Test-PortInUse $frontendPort) {
-    Write-Log "Port $frontendPort ist belegt - Vite weicht auf einen anderen aus."
+    Stop-WithError "Port $frontendPort ist belegt. Läuft noch ein altes Vite? Der Dev-Proxy leitet fest auf $frontendPort."
 }
 if (Test-PortInUse $landingPort) {
     Stop-WithError "Port $landingPort ist belegt. Läuft noch eine alte Landing Page?"

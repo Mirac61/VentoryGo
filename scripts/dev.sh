@@ -81,7 +81,7 @@ if port_in_use "$BACKEND_PORT"; then
     fail "Port $BACKEND_PORT ist belegt. Läuft noch ein altes Backend?"
 fi
 if port_in_use "$FRONTEND_PORT"; then
-    log "Port $FRONTEND_PORT ist belegt — Vite weicht auf einen anderen aus."
+    fail "Port $FRONTEND_PORT ist belegt. Läuft noch ein altes Vite? Der Dev-Proxy leitet fest auf $FRONTEND_PORT."
 fi
 if port_in_use "$LANDING_PORT"; then
     fail "Port $LANDING_PORT ist belegt. Läuft noch eine alte Landing Page?"
