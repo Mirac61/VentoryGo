@@ -221,7 +221,7 @@ proxy_pid=$!
 child_pids="$backend_pid $frontend_pid $landing_pid $proxy_pid"
 
 log "Backend auf :$BACKEND_PORT, Frontend auf :$FRONTEND_PORT, Landing auf :$LANDING_PORT, Proxy auf :$PROXY_PORT."
-log "Alles zusammen erreichbar unter http://localhost:$PROXY_PORT/landing/. Beenden mit Strg-C."
+log "Alles zusammen erreichbar unter http://localhost:$PROXY_PORT. Beenden mit Strg-C."
 
 # bash 3.2 kennt kein `wait -n`, deshalb pollen statt warten: sobald einer der vier
 # Prozesse weg ist, sollen auch die anderen gehen -- ein halber Stack hilft niemandem.

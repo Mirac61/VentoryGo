@@ -9,14 +9,13 @@
 // (serve serviert nur den angegebenen Ordner und alles darunter, nichts
 // darüber — dasselbe Prinzip wie Vites fs.allow-Einschränkung).
 //
-// Relative Asset-Pfade (styles.css, images/...) in landing/index.html
-// funktionieren unabhängig davon, unter welcher URL die Seite aufgerufen
-// wird, weil index.html selbst ein <base href="/landing/"> setzt — NICHT
-// über URL-Rewriting hier im Proxy. Ein früherer Versuch, "/" serverseitig
-// auf /landing/index.html umzuschreiben, führte zu einer Redirect-Schleife
-// und/oder falscher Asset-Basis, weil der Browser die tatsächlich
-// aufgerufene URL für relative Pfade nutzt, nicht den intern
-// umgeschriebenen Pfad.
+// Die Asset-Pfade in landing/index.html sind relativ (styles.css, images/...),
+// der Browser löst sie also gegen die aufgerufene URL auf — nicht gegen einen
+// intern umgeschriebenen Pfad. Deshalb wird "/" per Redirect auf "/landing/"
+// geschickt statt serverseitig umgeschrieben: nur mit dem echten Trailing
+// Slash in der Adresszeile landet styles.css bei /landing/styles.css.
+// Kein <base>-Tag in index.html, das würde in Produktion brechen, wo die
+// Landing Page unter "/" liegt.
 //
 // Nutzung:
 //   node proxy.js
@@ -27,10 +26,8 @@
 //
 // Routing:
 //   /login, /register, /dashboard, /api/*  → :5173 (Frontend/Vite)
+//   / und /landing                          → 302 auf /landing/
 //   alles andere                            → :4173 (Landing Page + Assets, unverändert)
-//
-// Aufruf lokal: http://localhost:8090/landing/ (mit Slash) für die Landing
-// Page, damit die Browser-Basis-URL von Anfang an stimmt.
 
 const http = require('node:http')
 
@@ -54,7 +51,19 @@ function targetFor(url) {
         : { host: LANDING_HOST, port: LANDING_PORT }
 }
 
+// Bewusst nur die Formen OHNE Trailing Slash. "/landing/" muss durchgereicht
+// werden, sonst redirected der Proxy auf dieselbe URL, die er gerade behandelt.
+function isLandingRoot(url) {
+    return url === '/' || url === '/landing'
+}
+
 function proxyRequest(clientReq, clientRes) {
+    if (isLandingRoot(clientReq.url)) {
+        clientRes.writeHead(302, { Location: '/landing/' })
+        clientRes.end()
+        return
+    }
+
     const target = targetFor(clientReq.url)
     proxyTo(clientReq, clientRes, target, clientReq.url)
 }
@@ -99,7 +108,7 @@ server.on('upgrade', (req, clientSocket, head) => {
         headers: req.headers,
     })
 
-    upstreamReq.on('upgrade', (upstreamRes, upstreamSocket) => {
+    upstreamReq.on('upgrade', (upstreamRes, upstreamSocket, upstreamHead) => {
         clientSocket.write(
             `HTTP/1.1 101 Switching Protocols\r\n` +
             Object.entries(upstreamRes.headers)
@@ -107,10 +116,17 @@ server.on('upgrade', (req, clientSocket, head) => {
                 .join('\r\n') +
             '\r\n\r\n',
         )
-        // `head` ist der bereits vom Client gelesene Rest nach dem Handshake und
-        // gehört an den UPSTREAM weitergereicht, nicht umgekehrt (vorher waren
-        // head/upstreamHead vertauscht, `head` wurde nie verwendet).
-        upstreamSocket.write(head)
+        // Beide Puffer sind der jeweils schon gelesene Rest nach dem Handshake
+        // und gehören an die Gegenseite: `head` kommt vom Client und muss zum
+        // Upstream, `upstreamHead` umgekehrt. Beim Vite-HMR-Handshake sind sie
+        // in der Regel leer — deshalb fällt eine falsche Richtung hier nicht
+        // auf, sondern erst bei Traffic, der direkt am Upgrade hängt.
+        if (head.length > 0) {
+            upstreamSocket.write(head)
+        }
+        if (upstreamHead.length > 0) {
+            clientSocket.write(upstreamHead)
+        }
         upstreamSocket.pipe(clientSocket)
         clientSocket.pipe(upstreamSocket)
     })
