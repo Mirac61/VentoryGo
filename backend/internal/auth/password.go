@@ -55,6 +55,9 @@ func HashConcurrencyFromEnv() (int, error) {
 }
 
 func (h *Hasher) acquire(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	select {
 	case h.sem <- struct{}{}:
 		return nil

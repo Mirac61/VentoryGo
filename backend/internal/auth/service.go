@@ -94,7 +94,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	user, err := s.repo.FindByEmail(ctx, normalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
-			_ = s.hasher.Verify(ctx, dummyHash(), password)
+			verifyErr := s.hasher.Verify(ctx, dummyHash(), password)
+			if ctx.Err() != nil {
+				return User{}, "", verifyErr
+			}
 			return User{}, "", ErrInvalidCredentials
 		}
 		return User{}, "", fmt.Errorf("find user: %w", err)
