@@ -1,0 +1,9 @@
+{
+  "name": "dev-proxy",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Lokaler Reverse-Proxy: führt landing/ und frontend/ unter einem Origin zusammen (nur für lokale Entwicklung). Keine Abhängigkeiten nötig.",
+  "scripts": {
+    "start": "node proxy.js"
+  }
+}

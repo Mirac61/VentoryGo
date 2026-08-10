@@ -1,0 +1,55 @@
+.submit {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-primary);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 15px;
+    margin-top: 8px;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.submit:hover:not(:disabled) {
+    background: #142263;
+}
+
+.submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.footer {
+    margin-top: 24px;
+    text-align: center;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.footer a {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+.forgotPassword {
+    display: block;
+    margin: -8px 0 20px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text);
+    text-decoration: none;
+}
+
+.forgotPassword:hover {
+    text-decoration: underline;
+}
