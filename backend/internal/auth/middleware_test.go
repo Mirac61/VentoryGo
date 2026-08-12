@@ -20,8 +20,10 @@ func authRouter(t *testing.T, ttl time.Duration) (*gin.Engine, *fakeSessionStore
 	gin.SetMode(gin.TestMode)
 
 	store := &fakeSessionStore{}
-	service := NewServiceWithSessionTTL(&fakeRepo{}, store, ttl)
-	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	hasher, err := NewHasher(1)
+	require.NoError(t, err)
+	service := NewServiceWithSessionTTL(&fakeRepo{}, store, ttl, hasher)
+	_, err = service.Register(context.Background(), "max@example.com", "correct horse battery")
 	require.NoError(t, err)
 	h := NewHandler(service, true)
 

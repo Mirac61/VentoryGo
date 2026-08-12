@@ -64,7 +64,9 @@ func tenantRouter(t *testing.T) *gin.Engine {
 		tokenKey(tokenB): uuid.New(),
 	}}
 	invoices := invoice.NewHandler(invoice.NewService(invoice.NewRepository()))
-	authService := auth.NewServiceWithSessionTTL(stubUserRepo{}, sessions, time.Hour)
+	hasher, err := auth.NewHasher(1)
+	require.NoError(t, err)
+	authService := auth.NewServiceWithSessionTTL(stubUserRepo{}, sessions, time.Hour, hasher)
 	authHandler := auth.NewHandler(authService, true)
 
 	return newRouter(invoices, authHandler, sessions, time.Hour, true)

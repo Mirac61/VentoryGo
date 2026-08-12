@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const dummyID = "00000000-0000-0000-0000-000000000000"
@@ -53,7 +54,9 @@ func testRouter(t *testing.T) *gin.Engine {
 
 	sessions := stubSessionStore{}
 	invoices := invoice.NewHandler(invoice.NewService(invoice.NewRepository()))
-	authService := auth.NewServiceWithSessionTTL(stubUserRepo{}, sessions, time.Hour)
+	hasher, err := auth.NewHasher(1)
+	require.NoError(t, err)
+	authService := auth.NewServiceWithSessionTTL(stubUserRepo{}, sessions, time.Hour, hasher)
 	authHandler := auth.NewHandler(authService, true)
 
 	return newRouter(invoices, authHandler, sessions, time.Hour, true)

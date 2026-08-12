@@ -68,9 +68,11 @@ func TestSessionTTLFromEnv(t *testing.T) {
 
 func TestLoginUsesConfiguredSessionTTL(t *testing.T) {
 	store := &fakeSessionStore{}
-	service := NewServiceWithSessionTTL(&fakeRepo{}, store, time.Second)
+	hasher, err := NewHasher(1)
+	require.NoError(t, err)
+	service := NewServiceWithSessionTTL(&fakeRepo{}, store, time.Second, hasher)
 
-	_, err := service.Register(context.Background(), "max@example.com", "correct horse battery")
+	_, err = service.Register(context.Background(), "max@example.com", "correct horse battery")
 	require.NoError(t, err)
 	_, _, err = service.Login(context.Background(), "max@example.com", "correct horse battery")
 	require.NoError(t, err)
@@ -105,6 +107,23 @@ func TestLoginHidesWhetherAccountExists(t *testing.T) {
 			assert.NotErrorIs(t, err, ErrUserNotFound, "ErrUserNotFound darf den Service nicht verlassen")
 			assert.Empty(t, token)
 		})
+	}
+}
+
+func TestLoginPropagatesContextError(t *testing.T) {
+	service, _ := serviceWithUser(t, "max@example.com", "correct horse battery")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Beide Zweige muessen sich gleich verhalten, sonst verraet die Antwort,
+	// ob es das Konto gibt.
+	for _, email := range []string{"max@example.com", "nobody@example.com"} {
+		_, token, err := service.Login(ctx, email, "correct horse battery")
+
+		assert.ErrorIs(t, err, context.Canceled, "Login fuer %q", email)
+		assert.NotErrorIs(t, err, ErrInvalidCredentials, "Login fuer %q", email)
+		assert.Empty(t, token, "Login fuer %q", email)
 	}
 }
 

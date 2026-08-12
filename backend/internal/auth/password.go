@@ -1,10 +1,14 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"runtime"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -19,7 +23,68 @@ const (
 	argonKeyLen      uint32 = 32
 )
 
-func HashPassword(password string) (string, error) {
+type Hasher struct {
+	sem chan struct{}
+}
+
+func NewHasher(concurrency int) (*Hasher, error) {
+	if concurrency < 1 {
+		return nil, fmt.Errorf("auth: concurrency must be >= 1, got %d", concurrency)
+	}
+	return &Hasher{sem: make(chan struct{}, concurrency)}, nil
+}
+
+func defaultHashConcurrency() int {
+	return runtime.GOMAXPROCS(0)
+}
+
+func HashConcurrencyFromEnv() (int, error) {
+	value := os.Getenv("AUTH_HASH_CONCURRENCY")
+	if value == "" {
+		return defaultHashConcurrency(), nil
+	}
+
+	concurrency, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid AUTH_HASH_CONCURRENCY %q: %w", value, err)
+	}
+	if concurrency < 1 {
+		return 0, fmt.Errorf("invalid AUTH_HASH_CONCURRENCY %q: muss positiv sein", value)
+	}
+	return concurrency, nil
+}
+
+func (h *Hasher) acquire(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case h.sem <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (h *Hasher) Hash(ctx context.Context, password string) (string, error) {
+	if err := h.acquire(ctx); err != nil {
+		return "", err
+	}
+	defer func() { <-h.sem }()
+
+	return hashPassword(password)
+}
+
+func (h *Hasher) Verify(ctx context.Context, encodedHash, password string) error {
+	if err := h.acquire(ctx); err != nil {
+		return err
+	}
+	defer func() { <-h.sem }()
+
+	return verifyPassword(encodedHash, password)
+}
+
+func hashPassword(password string) (string, error) {
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
@@ -32,7 +97,7 @@ func HashPassword(password string) (string, error) {
 		argon2.Version, argonMemory, argonTime, argonParallelism, b64Salt, b64Key), nil
 }
 
-func VerifyPassword(encodedHash, password string) error {
+func verifyPassword(encodedHash, password string) error {
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 || parts[1] != "argon2id" {
 		return ErrInvalidHash

@@ -34,9 +34,19 @@ func main() {
 	repo := invoice.NewPostgresRepository(pool)
 	service := invoice.NewService(repo)
 	handler := invoice.NewHandler(service)
+	hashConcurrency, err := auth.HashConcurrencyFromEnv()
+	if err != nil {
+		log.Fatalf("invalid hash concurrency: %v", err)
+	}
+	hasher, err := auth.NewHasher(hashConcurrency)
+	if err != nil {
+		log.Fatalf("failed to create password hasher: %v", err)
+	}
+	log.Printf("password hashing limited to %d concurrent requests", hashConcurrency)
+
 	authRepo := auth.NewPostgresRepository(pool)
 	sessionStore := auth.NewPostgresSessionStore(pool)
-	authService := auth.NewServiceWithSessionTTL(authRepo, sessionStore, sessionTTL)
+	authService := auth.NewServiceWithSessionTTL(authRepo, sessionStore, sessionTTL, hasher)
 	authHandler := auth.NewHandler(authService, cookieSecure)
 
 	r := newRouter(handler, authHandler, sessionStore, sessionTTL, cookieSecure)
