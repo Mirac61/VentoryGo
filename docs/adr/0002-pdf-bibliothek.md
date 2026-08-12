@@ -7,12 +7,11 @@ Ticket: [#23](https://github.com/Mirac61/VentoryGo/issues/23), Grundlage für
 
 ## Entscheidung
 
-`github.com/johnfercher/maroto/v2`, Version 2.4.0, MIT-Lizenz.
-
-Die Entscheidung fiel ganz leicht, da Maroto eine einfachere Erstellung von PDFs
-ermöglicht. Es arbeitet mit einem Grid-Raster statt freier Koordinaten, das ließ sich
-im Prototyp aber ohne Einschränkung bei Farbe, Schrift und Logo anpassen. Maroto
-rendert dabei selbst über `phpdave11/gofpdf`.
+`github.com/johnfercher/maroto/v2`, Version 2.4.0, MIT-Lizenz. Die Entscheidung fiel
+ganz leicht, da Maroto eine einfachere Erstellung von PDFs ermöglicht. Es arbeitet mit
+einem Grid-Raster statt freier Koordinaten, das ließ sich im Prototyp aber ohne
+Einschränkung bei Farbe, Schrift und Logo anpassen. Maroto rendert dabei selbst über
+`phpdave11/gofpdf`.
 
 Diese Entscheidung kam erst nach einem Wegwerf-Prototypen (60 Positionen, 3 Seiten,
 farbiger Tabellenkopf, eingebettete TTF); Renderbeispiele daraus lassen sich bei Bedarf
@@ -76,9 +75,11 @@ Bibliothek trifft damit nur dieses eine Package.
 
 ## Offene Punkte
 
-- **Der Prototyp lief auf dem Entwicklungsrechner, nicht im Image.** 
-    - Der Build ist CGO-frei -> erlaubt Docker zu benutzen
-    - Test lief nur auf meinem rechner -> zeiten variabel
+- **Der Prototyp lief auf dem Entwicklungsrechner, nicht im Image.**
+    - `CGO_ENABLED=0 GOOS=linux go build` prüft nur den Binary-Build, nicht das
+      Laufzeit-Image — ob Fonts und Assets darin ankommen, ist ungetestet
+    - Es fehlt ein CI-Test, der das Image baut, darin ein PDF erzeugt und validiert
+    - Zeiten/Speicherwerte stammen vom Entwicklungsrechner, nicht aus dem Image
 
 - **Schriftart / Font ist nicht festgelegt worden**:
     - Es muss lizenzrechtlich erlaubt sein
