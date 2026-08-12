@@ -30,6 +30,8 @@ func SessionTTLFromEnv() (time.Duration, error) {
 	return ttl, nil
 }
 
+// dummyHash is the stand-in hash for logins with an unknown email. Hashed once
+// so every such login verifies against the same parameters as a real account.
 var dummyHash = sync.OnceValue(func() string {
 	hash, _ := hashPassword("dummy")
 	return hash
@@ -94,6 +96,9 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	user, err := s.repo.FindByEmail(ctx, normalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
+			// Verify against a fixed dummy hash so an unknown account costs the same
+			// time as a wrong password. Skipping it would let response timing
+			// enumerate valid emails.
 			verifyErr := s.hasher.Verify(ctx, dummyHash(), password)
 			if ctx.Err() != nil {
 				return User{}, "", verifyErr
