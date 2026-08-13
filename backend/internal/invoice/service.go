@@ -54,8 +54,7 @@ func calculateTotals(items []LineItem) (breakdown []VATBreakdownEntry, net, vat,
 	sort.Ints(rates)
 	for _, rate := range rates {
 		netAmount := grouped[rate]
-		ratePercent := int64(rate / 100)
-		vatAmount := RoundedVAT(netAmount, ratePercent)
+		vatAmount := RoundedVAT(netAmount, int64(rate))
 
 		breakdown = append(breakdown, VATBreakdownEntry{
 			VatRate:   rate,

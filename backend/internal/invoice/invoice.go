@@ -67,7 +67,7 @@ type LineItem struct {
 	UnitPrice   Money  `json:"unitPrice" binding:"gte=0"`
 	Unit        string `json:"unit"`
 	Total       Money  `json:"total"`
-	VatRate     int    `json:"vatRate" binding:"required"`
+	VatRate     int    `json:"vatRate" binding:"gte=0"`
 }
 
 type VATBreakdownEntry struct {

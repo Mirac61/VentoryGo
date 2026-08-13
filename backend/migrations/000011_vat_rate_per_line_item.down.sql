@@ -6,6 +6,18 @@ BEGIN;
 
 ALTER TABLE invoices ADD COLUMN vat_rate NUMERIC(5,4) NOT NULL DEFAULT 0;
 
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM invoice_items
+        GROUP BY invoice_id
+        HAVING COUNT(DISTINCT vat_rate) > 1
+    ) THEN
+        RAISE EXCEPTION 'rollback blocked: mixed VAT rates per invoice exist';
+    END IF;
+END $$;
+
 UPDATE invoices i
 SET vat_rate = (
     SELECT MIN(ii.vat_rate / 10000.0)
