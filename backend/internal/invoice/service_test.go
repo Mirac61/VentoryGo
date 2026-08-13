@@ -378,7 +378,7 @@ func TestIssue_EmptyCurrency_ReturnsMissingCurrency(t *testing.T) {
 			IBAN:    "DE89370400440532013000",
 		},
 		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
-		Items: []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100, VatRate: 1900}},
+		Items:     []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100, VatRate: 1900}},
 	}, testOwner)
 	require.NoError(t, err)
 

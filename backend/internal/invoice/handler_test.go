@@ -42,7 +42,7 @@ func validInvoiceBody() map[string]any {
 			"vatId": "DE123456789", "iban": "DE89370400440532013000",
 		},
 		"recipient": map[string]any{"name": "Recipient GmbH", "street": "Nebenstr. 2", "zip": "70174", "city": "Stuttgart", "country": "DE"},
-		"items": []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900}},
+		"items":     []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900}},
 	}
 }
 
