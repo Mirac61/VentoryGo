@@ -6,7 +6,6 @@ type InvoicePatch struct {
 	PaymentDueAt *time.Time  `json:"paymentDueAt" binding:"omitempty,notzero"`
 	Recipient    *Contact    `json:"recipient"`
 	Items        *[]LineItem `json:"items" binding:"omitempty,min=1,dive"`
-	VATRate      *float64    `json:"vatRate" binding:"omitempty,gte=0,lte=1"`
 	Notes        *string     `json:"notes"`
 }
 
@@ -20,23 +19,23 @@ const (
 )
 
 type Invoice struct {
-	ID            string        `json:"id"`
-	InvoiceNumber *string       `json:"invoiceNumber"`
-	Status        InvoiceStatus `json:"status"`
-	CreatedAt     time.Time     `json:"createdAt"`
-	IssuedAt      time.Time     `json:"issuedAt"`
-	ServiceDate   time.Time     `json:"serviceDate"`
-	Currency      string        `json:"currency" binding:"omitempty,len=3,currency"`
-	PaymentDueAt  time.Time     `json:"paymentDueAt" binding:"required"`
-	Sender        Issuer        `json:"sender" binding:"required"`
-	Recipient     Contact       `json:"recipient" binding:"required"`
-	Items         []LineItem    `json:"items" binding:"required,min=1,dive"`
-	VATRate       float64       `json:"vatRate" binding:"gte=0,lte=1"`
-	NetTotal      Money         `json:"netTotal"`
-	VATAmount     Money         `json:"vatAmount"`
-	GrossTotal    Money         `json:"grossTotal"`
-	Notes         string        `json:"notes"`
-	OwnerID       string        `json:"-"`
+	ID            string              `json:"id"`
+	InvoiceNumber *string             `json:"invoiceNumber"`
+	Status        InvoiceStatus       `json:"status"`
+	CreatedAt     time.Time           `json:"createdAt"`
+	IssuedAt      time.Time           `json:"issuedAt"`
+	ServiceDate   time.Time           `json:"serviceDate"`
+	Currency      string              `json:"currency" binding:"omitempty,len=3,currency"`
+	PaymentDueAt  time.Time           `json:"paymentDueAt" binding:"required"`
+	Sender        Issuer              `json:"sender" binding:"required"`
+	Recipient     Contact             `json:"recipient" binding:"required"`
+	Items         []LineItem          `json:"items" binding:"required,min=1,dive"`
+	VatBreakdown  []VATBreakdownEntry `json:"vatBreakdown"`
+	NetTotal      Money               `json:"netTotal"`
+	VATAmount     Money               `json:"vatAmount"`
+	GrossTotal    Money               `json:"grossTotal"`
+	Notes         string              `json:"notes"`
+	OwnerID       string              `json:"-"`
 }
 
 type Contact struct {
@@ -68,4 +67,11 @@ type LineItem struct {
 	UnitPrice   Money  `json:"unitPrice" binding:"gte=0"`
 	Unit        string `json:"unit"`
 	Total       Money  `json:"total"`
+	VatRate     int    `json:"vatRate" binding:"required"`
+}
+
+type VATBreakdownEntry struct {
+	VatRate   int   `json:"vatRate"`
+	NetAmount Money `json:"netAmount"`
+	VatAmount Money `json:"vatAmount"`
 }

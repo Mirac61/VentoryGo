@@ -27,9 +27,8 @@ func draftInvoice() Invoice {
 		},
 		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
 		Items: []LineItem{
-			{Description: "Beratung", Quantity: 2, UnitPrice: 100},
+			{Description: "Beratung", Quantity: 2, UnitPrice: 100, VatRate: 1900},
 		},
-		VATRate: 0.19,
 	}
 }
 
@@ -41,10 +40,9 @@ func seedDraftInvoice(t *testing.T, s *Service) Invoice {
 
 func seedIssuedInvoice(t *testing.T, repo *Repository) Invoice {
 	created, err := repo.Create(Invoice{
-		ID:      "issued-1",
-		Status:  StatusIssued,
-		VATRate: 0.19,
-		Items:   []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
+		ID:     "issued-1",
+		Status: StatusIssued,
+		Items:  []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100, VatRate: 1900}},
 	}, testOwner)
 	require.NoError(t, err)
 	return created
@@ -68,23 +66,20 @@ func TestPartialUpdate_RecalculatesTotals(t *testing.T) {
 	tests := []struct {
 		name      string
 		items     []LineItem
-		vatRate   float64
 		wantNet   Money
 		wantVAT   Money
 		wantGross Money
 	}{
 		{
 			name:      "standard VAT rate",
-			items:     []LineItem{{Description: "Beratung", Quantity: 3, UnitPrice: 15000}},
-			vatRate:   0.19,
+			items:     []LineItem{{Description: "Beratung", Quantity: 3, UnitPrice: 15000, VatRate: 1900}},
 			wantNet:   45000,
 			wantVAT:   8550,
 			wantGross: 53550,
 		},
 		{
 			name:      "reduced VAT rate",
-			items:     []LineItem{{Description: "Buch", Quantity: 1, UnitPrice: 2000}},
-			vatRate:   0.07,
+			items:     []LineItem{{Description: "Buch", Quantity: 1, UnitPrice: 2000, VatRate: 700}},
 			wantNet:   2000,
 			wantVAT:   140,
 			wantGross: 2140,
@@ -96,7 +91,7 @@ func TestPartialUpdate_RecalculatesTotals(t *testing.T) {
 			s := newTestService()
 			created := seedDraftInvoice(t, s)
 
-			patch := InvoicePatch{Items: &test.items, VATRate: &test.vatRate}
+			patch := InvoicePatch{Items: &test.items}
 			updated, err := s.PartialUpdate(created.ID, patch, testOwner)
 
 			require.NoError(t, err)
@@ -241,19 +236,19 @@ func TestUpdate_InvalidData_ReturnsInvalidInput(t *testing.T) {
 	created := seedDraftInvoice(t, s)
 
 	replacement := created
-	replacement.VATRate = 1.5
+	replacement.Items[0].VatRate = -1
 
 	_, err := s.Update(created.ID, replacement, testOwner)
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
 }
 
-func TestUpdate_FractionalVATRate_ReturnsInvalidInput(t *testing.T) {
+func TestUpdate_InvalidVatRate_ReturnsInvalidInput(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
 	replacement := created
-	replacement.VATRate = 0.195
+	replacement.Items[0].VatRate = -1
 
 	_, err := s.Update(created.ID, replacement, testOwner)
 
@@ -383,8 +378,7 @@ func TestIssue_EmptyCurrency_ReturnsMissingCurrency(t *testing.T) {
 			IBAN:    "DE89370400440532013000",
 		},
 		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
-		Items:     []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100}},
-		VATRate:   0.19,
+		Items: []LineItem{{Description: "Beratung", Quantity: 1, UnitPrice: 100, VatRate: 1900}},
 	}, testOwner)
 	require.NoError(t, err)
 

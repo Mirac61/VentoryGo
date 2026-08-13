@@ -99,9 +99,8 @@ func TestPostgresGetByID(t *testing.T) {
 		Sender:        Issuer{Contact: Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"}},
 		Recipient:     Contact{Name: "Recipient", Street: "S2", Zip: "222", City: "C2", Country: "DE"},
 		Items: []LineItem{
-			{ID: uuid.NewString(), Position: 1, Description: "Test Item", Quantity: 1, UnitPrice: 50, Total: 50},
+			{ID: uuid.NewString(), Position: 1, Description: "Test Item", Quantity: 1, UnitPrice: 50, Total: 50, VatRate: 1900},
 		},
-		VATRate: 0.19,
 	}
 
 	created, err := repo.Create(invoice, owner)
