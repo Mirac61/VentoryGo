@@ -42,8 +42,7 @@ func validInvoiceBody() map[string]any {
 			"vatId": "DE123456789", "iban": "DE89370400440532013000",
 		},
 		"recipient": map[string]any{"name": "Recipient GmbH", "street": "Nebenstr. 2", "zip": "70174", "city": "Stuttgart", "country": "DE"},
-		"items":     []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100}},
-		"vatRate":   0.19,
+		"items":     []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900}},
 	}
 }
 
@@ -122,7 +121,7 @@ func TestCreate(t *testing.T) {
 	t.Run("negative quantity returns 400", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
-		body["items"] = []map[string]any{{"description": "X", "quantity": -1, "unitPrice": 100}}
+		body["items"] = []map[string]any{{"description": "X", "quantity": -1, "unitPrice": 100, "vatRate": 1900}}
 
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
@@ -313,7 +312,7 @@ func TestPartialUpdateHandler(t *testing.T) {
 	t.Run("negative quantity in patched items returns 400", func(t *testing.T) {
 		r, _ := setupRouter()
 		id := createInvoice(t, r)
-		body := map[string]any{"items": []map[string]any{{"description": "X", "quantity": -5, "unitPrice": 10}}}
+		body := map[string]any{"items": []map[string]any{{"description": "X", "quantity": -5, "unitPrice": 10, "vatRate": 1900}}}
 
 		w := doRequest(r, http.MethodPatch, "/api/invoices/"+id, body)
 
