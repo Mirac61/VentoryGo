@@ -2,6 +2,7 @@ package invoice
 
 import (
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -227,6 +228,20 @@ func TestPartialUpdate_InvalidData_ReturnsInvalidInput(t *testing.T) {
 
 	items := []LineItem{{Description: "X", Quantity: scaledQuantity(-1), UnitPrice: 10}}
 	_, err := s.PartialUpdate(created.ID, InvoicePatch{Items: &items}, testOwner)
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+func TestCreate_InvoiceTotalOverflow_ReturnsInvalidInput(t *testing.T) {
+	s := newTestService()
+	huge := Quantity(math.MaxInt64 / quantityScale)
+
+	items := make([]LineItem, 1001)
+	for i := range items {
+		items[i] = LineItem{Description: "X", Quantity: huge, UnitPrice: 1000, VatRate: 0}
+	}
+
+	_, err := s.Create(Invoice{Items: items}, testOwner)
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
 }

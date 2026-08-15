@@ -2,6 +2,7 @@ package invoice
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -46,13 +47,26 @@ func prepareItems(items []LineItem) error {
 	return nil
 }
 
+func addMoney(a, b Money) (Money, error) {
+	if b > 0 && a > math.MaxInt64-b {
+		return 0, ErrInvalidInput
+	}
+	if b < 0 && a < math.MinInt64-b {
+		return 0, ErrInvalidInput
+	}
+	return a + b, nil
+}
+
 func calculateTotals(items []LineItem) (breakdown []VATBreakdownEntry, net, vat, gross Money, err error) {
 	if err = prepareItems(items); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	grouped := make(map[int]Money)
 	for _, item := range items {
-		grouped[item.VatRate] += item.Total
+		grouped[item.VatRate], err = addMoney(grouped[item.VatRate], item.Total)
+		if err != nil {
+			return nil, 0, 0, 0, err
+		}
 	}
 	rates := make([]int, 0, len(grouped))
 	for rate := range grouped {
@@ -68,10 +82,19 @@ func calculateTotals(items []LineItem) (breakdown []VATBreakdownEntry, net, vat,
 			NetAmount: netAmount,
 			VatAmount: vatAmount,
 		})
-		net += netAmount
-		vat += vatAmount
+		net, err = addMoney(net, netAmount)
+		if err != nil {
+			return nil, 0, 0, 0, err
+		}
+		vat, err = addMoney(vat, vatAmount)
+		if err != nil {
+			return nil, 0, 0, 0, err
+		}
 	}
-	gross = net + vat
+	gross, err = addMoney(net, vat)
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
 	return
 }
 
