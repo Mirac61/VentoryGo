@@ -93,8 +93,7 @@ const invoiceBody = `{
 	"sender": {"name": "Sender GmbH", "street": "Hauptstr. 1", "zip": "70173", "city": "Stuttgart", "country": "DE",
 	           "vatId": "DE123456789", "iban": "DE89370400440532013000"},
 	"recipient": {"name": "Recipient GmbH", "street": "Nebenstr. 2", "zip": "70174", "city": "Stuttgart", "country": "DE"},
-	"items": [{"description": "Beratung", "quantity": 2, "unitPrice": 100}],
-	"vatRate": 0.19
+	"items": [{"description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900}]
 }`
 
 func createAs(t *testing.T, r *gin.Engine, token string) string {

@@ -14,9 +14,9 @@ const invoiceColumns = `
 	id, invoice_number, status, created_at, issued_at, payment_due_at, service_date, currency, 
 	sender_name, sender_street, sender_zip, sender_city, sender_country, sender_email, sender_phone, sender_tax_id, sender_vat_id, sender_tax_number, sender_iban, sender_bic, sender_bank_name,
 	recipient_name, recipient_street, recipient_zip, recipient_city, recipient_country, recipient_email, recipient_phone, recipient_tax_id,
-	vat_rate, net_total, vat_amount, gross_total, notes, owner_id`
+	net_total, vat_amount, gross_total, notes, owner_id`
 
-const itemColumns = `id, invoice_id, position, description, quantity, unit_price, unit, total`
+const itemColumns = `id, invoice_id, position, description, quantity, unit_price, unit, total, vat_rate`
 
 type rowScanner interface {
 	Scan(dest ...any) error
@@ -44,7 +44,7 @@ func scanInvoice(row rowScanner) (Invoice, error) {
 		&invoice.ID, &number, &invoice.Status, &invoice.CreatedAt, &invoice.IssuedAt, &invoice.PaymentDueAt, &invoice.ServiceDate, &invoice.Currency,
 		&invoice.Sender.Name, &invoice.Sender.Street, &invoice.Sender.Zip, &invoice.Sender.City, &invoice.Sender.Country, &invoice.Sender.Email, &invoice.Sender.Phone, &invoice.Sender.TaxID, &invoice.Sender.VatID, &invoice.Sender.TaxNumber, &invoice.Sender.IBAN, &invoice.Sender.BIC, &invoice.Sender.BankName,
 		&invoice.Recipient.Name, &invoice.Recipient.Street, &invoice.Recipient.Zip, &invoice.Recipient.City, &invoice.Recipient.Country, &invoice.Recipient.Email, &invoice.Recipient.Phone, &invoice.Recipient.TaxID,
-		&invoice.VATRate, &invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes, &invoice.OwnerID,
+		&invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes, &invoice.OwnerID,
 	)
 	if number != "" {
 		invoice.InvoiceNumber = &number
@@ -54,7 +54,7 @@ func scanInvoice(row rowScanner) (Invoice, error) {
 
 func scanItem(row rowScanner) (LineItem, error) {
 	var item LineItem
-	err := row.Scan(&item.ID, &item.InvoiceID, &item.Position, &item.Description, &item.Quantity, &item.UnitPrice, &item.Unit, &item.Total)
+	err := row.Scan(&item.ID, &item.InvoiceID, &item.Position, &item.Description, &item.Quantity, &item.UnitPrice, &item.Unit, &item.Total, &item.VatRate)
 	return item, err
 }
 
@@ -85,8 +85,8 @@ func insertItems(ctx context.Context, tx pgx.Tx, invoiceID string, items []LineI
 	for _, item := range items {
 		_, err := tx.Exec(ctx, `
 			INSERT INTO invoice_items (`+itemColumns+`)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		`, item.ID, invoiceID, item.Position, item.Description, item.Quantity, item.UnitPrice, item.Unit, item.Total)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`, item.ID, invoiceID, item.Position, item.Description, item.Quantity, item.UnitPrice, item.Unit, item.Total, item.VatRate)
 		if err != nil {
 			return err
 		}
@@ -209,11 +209,11 @@ func (r *PostgresRepository) Create(invoice Invoice, ownerID string) (Invoice, e
 func insertInvoice(ctx context.Context, tx pgx.Tx, invoice Invoice) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO invoices (`+invoiceColumns+`)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
 	`, invoice.ID, numberOrEmpty(invoice.InvoiceNumber), invoice.Status, invoice.CreatedAt, invoice.IssuedAt, invoice.PaymentDueAt, invoice.ServiceDate, invoice.Currency,
 		invoice.Sender.Name, invoice.Sender.Street, invoice.Sender.Zip, invoice.Sender.City, invoice.Sender.Country, invoice.Sender.Email, invoice.Sender.Phone, invoice.Sender.TaxID, invoice.Sender.VatID, invoice.Sender.TaxNumber, invoice.Sender.IBAN, invoice.Sender.BIC, invoice.Sender.BankName,
 		invoice.Recipient.Name, invoice.Recipient.Street, invoice.Recipient.Zip, invoice.Recipient.City, invoice.Recipient.Country, invoice.Recipient.Email, invoice.Recipient.Phone, invoice.Recipient.TaxID,
-		invoice.VATRate, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal, invoice.Notes, invoice.OwnerID)
+		invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal, invoice.Notes, invoice.OwnerID)
 	return err
 }
 
@@ -293,12 +293,12 @@ func (r *PostgresRepository) Update(id string, fn UpdateFunc, ownerID string) (I
 			invoice_number = $1, status = $2, issued_at = $3, payment_due_at = $4, service_date = $5, currency = $6,
 			sender_name = $7, sender_street = $8, sender_zip = $9, sender_city = $10, sender_country = $11, sender_email = $12, sender_phone = $13, sender_tax_id = $14, sender_vat_id = $15, sender_tax_number = $16, sender_iban = $17, sender_bic = $18, sender_bank_name = $19,
 			recipient_name = $20, recipient_street = $21, recipient_zip = $22, recipient_city = $23, recipient_country = $24, recipient_email = $25, recipient_phone = $26, recipient_tax_id = $27,
-			vat_rate = $28, net_total = $29, vat_amount = $30, gross_total = $31, notes = $32
-		WHERE id = $33 AND owner_id = $34
+			net_total = $28, vat_amount = $29, gross_total = $30, notes = $31
+		WHERE id = $32 AND owner_id = $33
 	`, numberOrEmpty(updated.InvoiceNumber), updated.Status, updated.IssuedAt, updated.PaymentDueAt, updated.ServiceDate, updated.Currency,
 		updated.Sender.Name, updated.Sender.Street, updated.Sender.Zip, updated.Sender.City, updated.Sender.Country, updated.Sender.Email, updated.Sender.Phone, updated.Sender.TaxID, updated.Sender.VatID, updated.Sender.TaxNumber, updated.Sender.IBAN, updated.Sender.BIC, updated.Sender.BankName,
 		updated.Recipient.Name, updated.Recipient.Street, updated.Recipient.Zip, updated.Recipient.City, updated.Recipient.Country, updated.Recipient.Email, updated.Recipient.Phone, updated.Recipient.TaxID,
-		updated.VATRate, updated.NetTotal, updated.VATAmount, updated.GrossTotal, updated.Notes, updated.ID, updated.OwnerID)
+		updated.NetTotal, updated.VATAmount, updated.GrossTotal, updated.Notes, updated.ID, updated.OwnerID)
 	if err != nil {
 		return Invoice{}, err
 	}

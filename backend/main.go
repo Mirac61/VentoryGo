@@ -51,5 +51,8 @@ func main() {
 
 	r := newRouter(handler, authHandler, sessionStore, sessionTTL, cookieSecure)
 
-	r.Run(":8080")
+	log.Print("server started")
+	if err := r.Run(":8080"); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
 }
