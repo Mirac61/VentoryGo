@@ -3,6 +3,7 @@ package invoice
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -12,74 +13,73 @@ const (
 	quantityRoundingOffset       = quantityScale / 2
 )
 
+// Quantity stores a decimal quantity as a fixed-point integer scaled by 1000.
+// For example, 1.5 is stored as 1500.
 type Quantity int64
 
-func (q Quantity) TotalAtPrice(unitPrice Money) Money {
-	scaledAmount := int64(q) * int64(unitPrice)
-	roundedAmount := (scaledAmount + quantityRoundingOffset) / quantityScale
-	return Money(roundedAmount)
+// TotalAtPrice returns the line total in cents, rounded half-up.
+func (q Quantity) TotalAtPrice(unitPrice Money) (Money, error) {
+	scaledQuantity := int64(q)
+	unitPriceCents := int64(unitPrice)
+
+	if scaledQuantity > 0 && unitPriceCents > 0 &&
+		scaledQuantity > (math.MaxInt64-quantityRoundingOffset)/unitPriceCents {
+		return 0, ErrInvalidInput
+	}
+
+	return Money((scaledQuantity*unitPriceCents + quantityRoundingOffset) / quantityScale), nil
 }
 
 func (q Quantity) MarshalJSON() ([]byte, error) {
-	scaled := int64(q)
-	sign := ""
-	if scaled < 0 {
-		sign = "-"
-		scaled = -scaled
+	value := int64(q)
+	negative := value < 0
+	if negative {
+		value = -value
 	}
 
-	whole := scaled / quantityScale
-	fraction := scaled % quantityScale
-	if fraction == 0 {
-		return []byte(sign + strconv.FormatInt(whole, 10)), nil
-	}
+	whole := value / quantityScale
+	fraction := value % quantityScale
 
-	decimal := strconv.FormatInt(fraction+quantityScale, 10)[1:]
-	decimal = strings.TrimRight(decimal, "0")
-	return []byte(sign + strconv.FormatInt(whole, 10) + "." + decimal), nil
+	out := strconv.FormatInt(whole, 10)
+	if fraction != 0 {
+		out += "." + strings.TrimRight(strconv.FormatInt(fraction+quantityScale, 10)[1:], "0")
+	}
+	if negative {
+		out = "-" + out
+	}
+	return []byte(out), nil
 }
 
 func (q *Quantity) UnmarshalJSON(data []byte) error {
-	raw := strings.TrimSpace(string(data))
-	if raw == "" || raw == "null" || strings.ContainsAny(raw, "eE") {
+	input := strings.TrimSpace(string(data))
+	if input == "" || input == "null" {
 		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
 	}
 
 	sign := int64(1)
-	if strings.HasPrefix(raw, "-") {
+	if strings.HasPrefix(input, "-") {
 		sign = -1
-		raw = raw[1:]
-	} else if strings.HasPrefix(raw, "+") {
+		input = input[1:]
+	}
+
+	wholePart, fractionPart := input, ""
+	if dot := strings.IndexByte(input, '.'); dot >= 0 {
+		wholePart, fractionPart = input[:dot], input[dot+1:]
+	}
+
+	if len(fractionPart) > 3 || strings.Trim(wholePart+fractionPart, "0123456789") != "" {
+		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
+	}
+	for len(fractionPart) < 3 {
+		fractionPart += "0"
+	}
+
+	whole, errWhole := strconv.ParseInt(wholePart, 10, 64)
+	fraction, errFrac := strconv.ParseInt(fractionPart, 10, 64)
+	if errWhole != nil || errFrac != nil || whole > (math.MaxInt64-fraction)/quantityScale {
 		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
 	}
 
-	parts := strings.Split(raw, ".")
-	if len(parts) > 2 || (len(parts) == 1 && parts[0] == "") || (len(parts) == 2 && parts[0] == "" && parts[1] == "") {
-		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
-	}
-	whole, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil || whole < 0 {
-		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
-	}
-
-	fractionText := ""
-	if len(parts) == 2 {
-		fractionText = parts[1]
-	}
-	if len(fractionText) > 3 || (fractionText != "" && strings.Trim(fractionText, "0123456789") != "") {
-		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
-	}
-	for len(fractionText) < 3 {
-		fractionText += "0"
-	}
-	fraction, err := strconv.ParseInt(fractionText, 10, 64)
-	if err != nil {
-		return fmt.Errorf("quantity must be a decimal number with at most three decimal places")
-	}
-
-	if whole > (int64(^uint64(0)>>1)-fraction)/quantityScale {
-		return fmt.Errorf("quantity is too large")
-	}
 	*q = Quantity(sign * (whole*quantityScale + fraction))
 	return nil
 }

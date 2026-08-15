@@ -31,18 +31,25 @@ func NewService(repo invoiceRepository) *Service {
 	return &Service{repo: repo, now: time.Now}
 }
 
-func prepareItems(items []LineItem) {
+func prepareItems(items []LineItem) error {
 	for i := range items {
 		if items[i].ID == "" {
 			items[i].ID = uuid.NewString()
 		}
 		items[i].Position = i + 1
-		items[i].Total = items[i].Quantity.TotalAtPrice(items[i].UnitPrice)
+		total, err := items[i].Quantity.TotalAtPrice(items[i].UnitPrice)
+		if err != nil {
+			return err
+		}
+		items[i].Total = total
 	}
+	return nil
 }
 
-func calculateTotals(items []LineItem) (breakdown []VATBreakdownEntry, net, vat, gross Money) {
-	prepareItems(items)
+func calculateTotals(items []LineItem) (breakdown []VATBreakdownEntry, net, vat, gross Money, err error) {
+	if err = prepareItems(items); err != nil {
+		return nil, 0, 0, 0, err
+	}
 	grouped := make(map[int]Money)
 	for _, item := range items {
 		grouped[item.VatRate] += item.Total
@@ -130,13 +137,19 @@ func (s *Service) Create(invoice Invoice, ownerID string) (Invoice, error) {
 	for i := range invoice.Items {
 		invoice.Items[i].ID = uuid.NewString()
 	}
-	invoice.VatBreakdown, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal = calculateTotals(invoice.Items)
+	totals, net, vat, gross, err := calculateTotals(invoice.Items)
+	if err != nil {
+		return Invoice{}, err
+	}
+	invoice.VatBreakdown, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal = totals, net, vat, gross
 
 	return s.repo.Create(invoice, ownerID)
 }
 
-func fillBreakdown(inv *Invoice) {
-	inv.VatBreakdown, inv.NetTotal, inv.VATAmount, inv.GrossTotal = calculateTotals(inv.Items)
+func fillBreakdown(inv *Invoice) error {
+	var err error
+	inv.VatBreakdown, inv.NetTotal, inv.VATAmount, inv.GrossTotal, err = calculateTotals(inv.Items)
+	return err
 }
 
 func (s *Service) GetByID(id string, ownerID string) (Invoice, error) {
@@ -147,7 +160,9 @@ func (s *Service) GetByID(id string, ownerID string) (Invoice, error) {
 	if err != nil {
 		return Invoice{}, err
 	}
-	fillBreakdown(&invoice)
+	if err := fillBreakdown(&invoice); err != nil {
+		return Invoice{}, err
+	}
 	return invoice, nil
 }
 
@@ -160,7 +175,9 @@ func (s *Service) GetAll(ownerID string) ([]Invoice, error) {
 		return nil, err
 	}
 	for i := range invoices {
-		fillBreakdown(&invoices[i])
+		if err := fillBreakdown(&invoices[i]); err != nil {
+			return nil, err
+		}
 	}
 	return invoices, nil
 }
@@ -201,7 +218,11 @@ func (s *Service) Update(id string, replacement Invoice, ownerID string) (Invoic
 		if err := validateInvoiceData(replacement.Items); err != nil {
 			return Invoice{}, err
 		}
-		replacement.VatBreakdown, replacement.NetTotal, replacement.VATAmount, replacement.GrossTotal = calculateTotals(replacement.Items)
+		totals, net, vat, gross, err := calculateTotals(replacement.Items)
+		if err != nil {
+			return Invoice{}, err
+		}
+		replacement.VatBreakdown, replacement.NetTotal, replacement.VATAmount, replacement.GrossTotal = totals, net, vat, gross
 		return replacement, nil
 	}
 	return s.repo.Update(id, mutate, ownerID)
@@ -232,7 +253,11 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch, ownerID string) (
 		if err := validateInvoiceData(invoice.Items); err != nil {
 			return Invoice{}, err
 		}
-		invoice.VatBreakdown, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal = calculateTotals(invoice.Items)
+		totals, net, vat, gross, err := calculateTotals(invoice.Items)
+		if err != nil {
+			return Invoice{}, err
+		}
+		invoice.VatBreakdown, invoice.NetTotal, invoice.VATAmount, invoice.GrossTotal = totals, net, vat, gross
 		return invoice, nil
 	}
 	return s.repo.Update(id, mutate, ownerID)

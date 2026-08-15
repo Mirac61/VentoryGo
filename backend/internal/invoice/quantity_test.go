@@ -2,13 +2,14 @@ package invoice
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func quantity(units int64) Quantity {
+func scaledQuantity(units int64) Quantity {
 	return Quantity(units * quantityScale)
 }
 
@@ -25,15 +26,23 @@ func TestQuantityTotalAtPrice(t *testing.T) {
 		{name: "rounds below half cent down", quantity: Quantity(1004), price: 999, want: 1003},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, test.quantity.TotalAtPrice(test.price))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.quantity.TotalAtPrice(tt.price)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
+func TestQuantityTotalAtPriceRejectsOverflow(t *testing.T) {
+	_, err := Quantity(math.MaxInt64).TotalAtPrice(2)
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
 func TestQuantityJSONRoundTrip(t *testing.T) {
-	for _, test := range []struct {
+	tests := []struct {
 		json string
 		want Quantity
 	}{
@@ -41,14 +50,18 @@ func TestQuantityJSONRoundTrip(t *testing.T) {
 		{json: "0.75", want: Quantity(750)},
 		{json: "1.005", want: Quantity(1005)},
 		{json: "2", want: Quantity(2000)},
-	} {
-		var got Quantity
-		require.NoError(t, json.Unmarshal([]byte(test.json), &got))
-		assert.Equal(t, test.want, got)
+	}
 
-		encoded, err := json.Marshal(got)
-		require.NoError(t, err)
-		assert.Equal(t, test.json, string(encoded))
+	for _, tt := range tests {
+		t.Run(tt.json, func(t *testing.T) {
+			var got Quantity
+			require.NoError(t, json.Unmarshal([]byte(tt.json), &got))
+			assert.Equal(t, tt.want, got)
+
+			encoded, err := json.Marshal(got)
+			require.NoError(t, err)
+			assert.Equal(t, tt.json, string(encoded))
+		})
 	}
 }
 

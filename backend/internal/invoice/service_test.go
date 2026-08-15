@@ -27,7 +27,7 @@ func draftInvoice() Invoice {
 		},
 		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
 		Items: []LineItem{
-			{Description: "Beratung", Quantity: quantity(2), UnitPrice: 100, VatRate: 1900},
+			{Description: "Beratung", Quantity: scaledQuantity(2), UnitPrice: 100, VatRate: 1900},
 		},
 	}
 }
@@ -42,7 +42,7 @@ func seedIssuedInvoice(t *testing.T, repo *Repository) Invoice {
 	created, err := repo.Create(Invoice{
 		ID:     "issued-1",
 		Status: StatusIssued,
-		Items:  []LineItem{{Description: "Beratung", Quantity: quantity(1), UnitPrice: 100, VatRate: 1900}},
+		Items:  []LineItem{{Description: "Beratung", Quantity: scaledQuantity(1), UnitPrice: 100, VatRate: 1900}},
 	}, testOwner)
 	require.NoError(t, err)
 	return created
@@ -72,14 +72,14 @@ func TestPartialUpdate_RecalculatesTotals(t *testing.T) {
 	}{
 		{
 			name:      "standard VAT rate",
-			items:     []LineItem{{Description: "Beratung", Quantity: quantity(3), UnitPrice: 15000, VatRate: 1900}},
+			items:     []LineItem{{Description: "Beratung", Quantity: scaledQuantity(3), UnitPrice: 15000, VatRate: 1900}},
 			wantNet:   45000,
 			wantVAT:   8550,
 			wantGross: 53550,
 		},
 		{
 			name:      "reduced VAT rate",
-			items:     []LineItem{{Description: "Buch", Quantity: quantity(1), UnitPrice: 2000, VatRate: 700}},
+			items:     []LineItem{{Description: "Buch", Quantity: scaledQuantity(1), UnitPrice: 2000, VatRate: 700}},
 			wantNet:   2000,
 			wantVAT:   140,
 			wantGross: 2140,
@@ -225,7 +225,7 @@ func TestPartialUpdate_InvalidData_ReturnsInvalidInput(t *testing.T) {
 	s := newTestService()
 	created := seedDraftInvoice(t, s)
 
-	items := []LineItem{{Description: "X", Quantity: quantity(-1), UnitPrice: 10}}
+	items := []LineItem{{Description: "X", Quantity: scaledQuantity(-1), UnitPrice: 10}}
 	_, err := s.PartialUpdate(created.ID, InvoicePatch{Items: &items}, testOwner)
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
@@ -378,7 +378,7 @@ func TestIssue_EmptyCurrency_ReturnsMissingCurrency(t *testing.T) {
 			IBAN:    "DE89370400440532013000",
 		},
 		Recipient: Contact{Name: "Recipient GmbH", Street: "Nebenstr. 2", Zip: "70174", City: "Stuttgart", Country: "DE"},
-		Items:     []LineItem{{Description: "Beratung", Quantity: quantity(1), UnitPrice: 100, VatRate: 1900}},
+		Items:     []LineItem{{Description: "Beratung", Quantity: scaledQuantity(1), UnitPrice: 100, VatRate: 1900}},
 	}, testOwner)
 	require.NoError(t, err)
 
