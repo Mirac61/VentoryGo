@@ -147,7 +147,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	if errors.Is(err, ErrNotUpdatable) {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error(), "code": "INVOICE_NOT_EDITABLE"})
 		return
 	}
 	if errors.Is(err, ErrInvalidInput) {
@@ -183,7 +183,7 @@ func (h *Handler) PartialUpdate(c *gin.Context) {
 		return
 	}
 	if errors.Is(err, ErrNotUpdatable) {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error(), "code": "INVOICE_NOT_EDITABLE"})
 		return
 	}
 	if err != nil {
