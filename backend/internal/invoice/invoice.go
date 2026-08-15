@@ -59,15 +59,15 @@ type Issuer struct {
 }
 
 type LineItem struct {
-	ID          string `json:"id"`
-	InvoiceID   string `json:"invoiceId"`
-	Position    int    `json:"position"`
-	Description string `json:"description" binding:"required"`
-	Quantity    int    `json:"quantity" binding:"gt=0"`
-	UnitPrice   Money  `json:"unitPrice" binding:"gte=0"`
-	Unit        string `json:"unit"`
-	Total       Money  `json:"total"`
-	VatRate     int    `json:"vatRate" binding:"gte=0"`
+	ID          string   `json:"id"`
+	InvoiceID   string   `json:"invoiceId"`
+	Position    int      `json:"position"`
+	Description string   `json:"description" binding:"required"`
+	Quantity    Quantity `json:"quantity" binding:"gt=0"`
+	UnitPrice   Money    `json:"unitPrice" binding:"gte=0"`
+	Unit        string   `json:"unit"`
+	Total       Money    `json:"total"`
+	VatRate     int      `json:"vatRate" binding:"gte=0"`
 }
 
 type VATBreakdownEntry struct {

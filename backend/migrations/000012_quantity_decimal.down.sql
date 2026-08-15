@@ -1,0 +1,7 @@
+BEGIN;
+
+ALTER TABLE invoice_items
+ALTER COLUMN quantity TYPE INTEGER
+USING quantity / 1000;
+
+COMMIT;

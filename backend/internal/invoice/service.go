@@ -37,7 +37,7 @@ func prepareItems(items []LineItem) {
 			items[i].ID = uuid.NewString()
 		}
 		items[i].Position = i + 1
-		items[i].Total = Money(items[i].Quantity) * items[i].UnitPrice
+		items[i].Total = items[i].Quantity.TotalAtPrice(items[i].UnitPrice)
 	}
 }
 

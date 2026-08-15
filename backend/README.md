@@ -124,3 +124,11 @@ Ganzzahl-Cent (`type Money int64`, siehe `internal/invoice/money.go`).
 
 **Breaking Change fürs Frontend:** Beträge müssen beim Anzeigen durch 100 geteilt und mit
 zwei Nachkommastellen formatiert werden, statt sie direkt als Euro-Float zu interpretieren.
+
+### Mengen in Rechnungspositionen
+
+`quantity` ist eine JSON-Dezimalzahl mit höchstens drei Nachkommastellen, zum Beispiel
+`1.5`, `0.75` oder `1.005`. Intern und in PostgreSQL wird die Menge als Ganzzahl mit der
+Skalierung `1000` gespeichert: `1.5` wird zu `1500`. Dadurch werden Gleitkommafehler
+vermieden. Die Positionssumme wird beim Zurückrechnen auf Cent genau einmal deterministisch
+gerundet.
