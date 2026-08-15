@@ -122,7 +122,9 @@ func verifyPassword(encodedHash, password string) error {
 	if len(salt) == 0 || len(hash) == 0 {
 		return ErrInvalidHash
 	}
-	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash)))
+	// keyLen folgt dem gespeicherten Hash und ist durch die PHC-String-Laenge
+	// begrenzt; ein Overflow von uint32 ist praktisch ausgeschlossen.
+	computed := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, uint32(len(hash))) // #nosec G115
 	if subtle.ConstantTimeCompare(hash, computed) == 1 {
 		return nil
 	}

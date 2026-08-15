@@ -2,6 +2,7 @@ package invoice
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -16,17 +17,22 @@ func init() {
 	if !ok {
 		return
 	}
-	v.RegisterValidation("notzero", func(fl validator.FieldLevel) bool {
+	register := func(tag string, fn validator.Func) {
+		if err := v.RegisterValidation(tag, fn); err != nil {
+			panic(fmt.Sprintf("invoice: RegisterValidation %q fehlgeschlagen: %v", tag, err))
+		}
+	}
+	register("notzero", func(fl validator.FieldLevel) bool {
 		t, ok := fl.Field().Interface().(time.Time)
 		if !ok {
 			return false
 		}
 		return !t.IsZero()
 	})
-	v.RegisterValidation("iban", func(fl validator.FieldLevel) bool {
+	register("iban", func(fl validator.FieldLevel) bool {
 		return validateIban(fl.Field().String())
 	})
-	v.RegisterValidation("currency", func(fl validator.FieldLevel) bool {
+	register("currency", func(fl validator.FieldLevel) bool {
 		return validateCurrency(fl.Field().String())
 	})
 }
