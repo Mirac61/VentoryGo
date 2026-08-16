@@ -99,7 +99,7 @@ func TestPostgresGetByID(t *testing.T) {
 		Sender:        Issuer{Contact: Contact{Name: "Sender", Street: "S1", Zip: "111", City: "C1", Country: "DE"}},
 		Recipient:     Contact{Name: "Recipient", Street: "S2", Zip: "222", City: "C2", Country: "DE"},
 		Items: []LineItem{
-			{ID: uuid.NewString(), Position: 1, Description: "Test Item", Quantity: 1, UnitPrice: 50, Total: 50, VatRate: 1900},
+			{ID: uuid.NewString(), Position: 1, Description: "Test Item", Quantity: Quantity(1500), UnitPrice: 50, Total: 75, VatRate: 1900},
 		},
 	}
 
@@ -113,6 +113,8 @@ func TestPostgresGetByID(t *testing.T) {
 	assert.Equal(t, *created.InvoiceNumber, *fetched.InvoiceNumber)
 	assert.Len(t, fetched.Items, 1)
 	assert.Equal(t, "Test Item", fetched.Items[0].Description)
+	assert.Equal(t, Quantity(1500), fetched.Items[0].Quantity)
+	assert.Equal(t, Money(75), fetched.Items[0].Total)
 }
 
 func TestPostgresGetByID_DraftReturnsNilInvoiceNumber(t *testing.T) {

@@ -72,6 +72,10 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 	created, err := h.service.Create(invoice, ownerID)
+	if errors.Is(err, ErrInvalidInput) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
