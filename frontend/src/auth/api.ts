@@ -1,15 +1,9 @@
 // Dünner fetch-Wrapper für alle API-Aufrufe. Same-origin dank Vite-Proxy
 // (dev) bzw. gemeinsamem Ursprung (prod). `credentials: 'include'` explizit
 // gesetzt, macht die Absicht sichtbar und schadet same-origin nicht.
-//
-// WICHTIG: Diese Datei richtet sich nach dem tatsächlichen Handler-Code
-// (internal/auth/handler.go), NICHT nach der Auth-Doku — beide widersprechen
-// sich an mehreren Stellen (Erfolgs-Body bei Login, Fehlerform, Statuscodes).
-// Code gewinnt. Falls die Doku noch aktualisiert wird, hier neu abgleichen.
 
 export class ApiError extends Error {
     status: number
-    // Nur bei 422 gefüllt: { feldname: validator-tag }, z.B. { password: "min" }
     fieldErrors?: Record<string, string>
 
     constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
@@ -63,13 +57,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
             // Kein JSON-Body, egal (z.B. bindJSON schlägt vor dem JSON-Encoding fehl).
         }
 
-        // 422 hat eine eigene Form: { "errors": { "email": "email", "password": "min" } }
         if (response.status === 422) {
             const fieldErrors = extractFieldErrors(payload)
             throw new ApiError(422, 'Eingabe ungültig', fieldErrors)
         }
 
-        // Alles andere: { "error": "<string>" } laut tatsächlichem Handler-Code.
         const message = extractFlatMessage(payload) ?? `Anfrage fehlgeschlagen (${response.status})`
         throw new ApiError(response.status, message)
     }
@@ -82,16 +74,16 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 }
 
 function extractFlatMessage(payload: unknown): string | undefined {
-    if (payload && typeof payload === 'object' && 'error' in payload) {
-        const value = (payload as { error?: unknown }).error
+    if (payload && typeof payload === 'object' && 'message' in payload) {
+        const value = (payload as { message?: unknown }).message
         if (typeof value === 'string') return value
     }
     return undefined
 }
 
 function extractFieldErrors(payload: unknown): Record<string, string> | undefined {
-    if (payload && typeof payload === 'object' && 'errors' in payload) {
-        const value = (payload as { errors?: unknown }).errors
+    if (payload && typeof payload === 'object' && 'fields' in payload) {
+        const value = (payload as { fields?: unknown }).fields
         if (value && typeof value === 'object') {
             return value as Record<string, string>
         }
