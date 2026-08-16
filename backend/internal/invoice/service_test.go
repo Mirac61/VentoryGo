@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -371,9 +372,10 @@ func TestIssue_MissingRequiredFields_ReturnsAllMissingAtOnce(t *testing.T) {
 				return
 			}
 
-			var mfe *MissingFieldsError
-			require.True(t, errors.As(err, &mfe), "expected *MissingFieldsError, got %T: %v", err, err)
-			assert.ElementsMatch(t, test.wantMissing, mfe.Fields)
+			var appErr *httperror.Error
+			require.True(t, errors.As(err, &appErr), "expected *httperror.Error, got %T: %v", err, err)
+			assert.True(t, errors.Is(err, ErrIncomplete))
+			assert.ElementsMatch(t, test.wantMissing, fieldNames(appErr.Fields))
 		})
 	}
 }
@@ -399,9 +401,10 @@ func TestIssue_EmptyCurrency_ReturnsMissingCurrency(t *testing.T) {
 
 	_, err = s.Issue(created.ID, testOwner)
 
-	var mfe *MissingFieldsError
-	require.True(t, errors.As(err, &mfe), "expected *MissingFieldsError, got %T: %v", err, err)
-	assert.ElementsMatch(t, []string{"currency"}, mfe.Fields)
+	var appErr *httperror.Error
+	require.True(t, errors.As(err, &appErr), "expected *httperror.Error, got %T: %v", err, err)
+	assert.True(t, errors.Is(err, ErrIncomplete))
+	assert.ElementsMatch(t, []string{"currency"}, fieldNames(appErr.Fields))
 }
 
 func TestUpdate_OmittedCurrency_DefaultsToEUR(t *testing.T) {
@@ -501,4 +504,12 @@ func TestIssue_UsesTheNumberingOfTheOwner(t *testing.T) {
 	require.NotNil(t, issuedOther.InvoiceNumber)
 	assert.Equal(t, "INV-2025-0001", *issuedOther.InvoiceNumber,
 		"ohne eigene Numbering gelten die Defaults, und der Zaehler laeuft getrennt")
+}
+
+func fieldNames(fields map[string]string) []string {
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	return names
 }

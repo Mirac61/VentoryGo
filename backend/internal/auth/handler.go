@@ -1,15 +1,13 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 
+	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
@@ -45,35 +43,15 @@ func setSessionCookie(c *gin.Context, token string, maxAge int, secure bool) {
 	c.SetCookie("session", token, maxAge, "/", "", secure, true)
 }
 
-func bindJSON(c *gin.Context, req any) bool {
-	if err := c.ShouldBindJSON(req); err != nil {
-		if validationErrs, ok := errors.AsType[validator.ValidationErrors](err); ok {
-			fields := gin.H{}
-			for _, fieldErr := range validationErrs {
-				fields[strings.ToLower(fieldErr.Field())] = fieldErr.Tag()
-			}
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"errors": fields})
-			return false
-		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return false
-	}
-	return true
-}
-
 func (h *Handler) Register(c *gin.Context) {
 	var req registerRequest
-	if !bindJSON(c, &req) {
+	if !httperror.Bind(c, &req) {
 		return
 	}
 
 	user, err := h.service.Register(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, ErrEmailTaken) {
-			c.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		httperror.WriteError(c, err)
 		return
 	}
 	c.JSON(http.StatusCreated, user)
@@ -81,17 +59,13 @@ func (h *Handler) Register(c *gin.Context) {
 
 func (h *Handler) Login(c *gin.Context) {
 	var req loginRequest
-	if !bindJSON(c, &req) {
+	if !httperror.Bind(c, &req) {
 		return
 	}
 
 	_, token, err := h.service.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, ErrInvalidCredentials) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		httperror.WriteError(c, err)
 		return
 	}
 	setSessionCookie(c, token, int(h.service.sessionTTL.Seconds()), h.cookieSecure)
@@ -103,7 +77,7 @@ func (h *Handler) Logout(c *gin.Context) {
 	if cookieErr == nil {
 		if err := h.service.Logout(c.Request.Context(), token); err != nil {
 			setSessionCookie(c, "", -1, h.cookieSecure)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			httperror.WriteError(c, err)
 			return
 		}
 	}
@@ -115,12 +89,12 @@ func (h *Handler) Me(c *gin.Context) {
 	value, _ := c.Get("user_id")
 	id, ok := value.(uuid.UUID)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		httperror.WriteError(c, fmt.Errorf("user id in context is not a uuid"))
 		return
 	}
 	user, err := h.service.Me(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+		httperror.WriteError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, user)

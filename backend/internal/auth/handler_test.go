@@ -162,14 +162,14 @@ func TestRegisterRejectsInvalidFieldsWith422(t *testing.T) {
 	require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
 
 	var body struct {
-		Errors map[string]string `json:"errors"`
+		Fields map[string]string `json:"fields"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 
 	assert.Equal(t, map[string]string{
 		"email":    "email",
 		"password": "min",
-	}, body.Errors)
+	}, body.Fields)
 }
 
 func TestRegisterRejectsBrokenJSONWith400(t *testing.T) {
@@ -294,7 +294,7 @@ func TestLoginMapsBadCredentialsTo401WithoutLeakingWhy(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, rec.Code)
 			assert.NotEqual(t, http.StatusNotFound, rec.Code)
 
-			assert.JSONEq(t, `{"error":"invalid email or password"}`, rec.Body.String())
+			assert.JSONEq(t, `{"code":"INVALID_CREDENTIALS","message":"invalid email or password"}`, rec.Body.String())
 			assert.Empty(t, rec.Result().Cookies())
 		})
 	}

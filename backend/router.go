@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Mirac61/VentoryGo/backend/internal/auth"
+	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +17,7 @@ func newRouter(
 	cookieSecure bool,
 ) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+	r.Use(gin.Logger(), gin.Recovery(), httperror.RequestID())
 
 	grp := r.Group("/api/invoices", auth.RequireAuth(sessions, sessionTTL, cookieSecure))
 	grp.GET("", invoices.GetAll)

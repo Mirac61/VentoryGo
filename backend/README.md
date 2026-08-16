@@ -107,6 +107,37 @@ Alle Endpunkte unter `/api/invoices`:
 | DELETE | `/:id` | Löschen (nur Drafts) |
 | POST | `/:id/issue` | Rechnungsnummer vergeben, Status → `issued`, danach eingefroren |
 
+## Fehlerformat
+
+Jede Fehlerantwort folgt einem einheitlichen Format:
+
+```json
+{ "code": "INVOICE_NOT_FOUND", "message": "invoice not found", "fields": {}, "requestId": "…" }
+```
+
+- `code` — stabiler Maschinencode (siehe Tabelle unten), niemals ein interner Fehlertext.
+- `message` — anzeigbare Kurzbeschreibung.
+- `fields` — bei Validierungsfehlern (422) Feldname → verletzte Regel, sonst leer.
+- `requestId` — korreliert mit dem Log-Eintrag des Servers; bei 500ern den Fehlertext
+  im Log suchen, nicht in der Antwort (dort steht nie SQL, `pq`-Fehler oder Tabellennamen).
+
+| Status | Code | Bedeutung |
+|---|---|---|
+| 400 | `INVALID_BODY` | Body ist kein valides JSON |
+| 401 | `UNAUTHENTICATED` | Kein oder ungültiger Session-Cookie |
+| 401 | `INVALID_CREDENTIALS` | E-Mail oder Passwort falsch (kein Unterschied nach Ursache) |
+| 401 | `SESSION_EXPIRED` | Session existiert nicht mehr |
+| 404 | `USER_NOT_FOUND` | Nutzer nicht gefunden |
+| 404 | `INVOICE_NOT_FOUND` | Rechnung nicht gefunden |
+| 409 | `EMAIL_TAKEN` | E-Mail ist bereits registriert |
+| 409 | `INVOICE_NOT_DELETABLE` | Nur Drafts sind löschbar |
+| 409 | `INVOICE_NOT_EDITABLE` | Nur Drafts sind änderbar |
+| 409 | `INVOICE_INVALID_TRANSITION` | Statuswechsel nicht erlaubt |
+| 422 | `VALIDATION_FAILED` | Body verletzt Feldregeln, Details in `fields` |
+| 422 | `INVOICE_INVALID` | Pflichtfelder fürs Anlegen fehlen |
+| 422 | `INVOICE_INCOMPLETE` | Pflichtfelder fürs Ausstellen fehlen, Details in `fields` |
+| 500 | `INTERNAL` | Interner Fehler, Details nur im Log mit `requestId` |
+
 ## Geldbeträge: Cent als Integer
 
 `unitPrice`, `total`, `netTotal`, `vatAmount` und `grossTotal` sind **Integer in Cent**,
