@@ -1,0 +1,96 @@
+@host = http://localhost:8080
+
+### Create invoice (Draft) - speichert die ID als {{invoice_id}}
+POST {{host}}/api/invoices
+Content-Type: application/json
+
+{
+  "paymentDueAt": "2026-08-30T00:00:00Z",
+  "serviceDate": "2026-08-15T00:00:00Z",
+  "sender": {
+    "name": "Sender GmbH",
+    "street": "Hauptstr. 1",
+    "zip": "70173",
+    "city": "Stuttgart",
+    "country": "DE",
+    "vatId": "DE123456789",
+    "iban": "DE89370400440532013000"
+  },
+  "recipient": {
+    "name": "Recipient GmbH",
+    "street": "Nebenstr. 2",
+    "zip": "70174",
+    "city": "Stuttgart",
+    "country": "DE"
+  },
+  "items": [
+    { "description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900 }
+  ]
+}
+
+> {%
+    client.global.set("invoice_id", response.body.id);
+%}
+
+### List all invoices
+GET {{host}}/api/invoices
+
+### Get invoice by ID
+GET {{host}}/api/invoices/{{invoice_id}}
+
+### Replace invoice (PUT)
+PUT {{host}}/api/invoices/{{invoice_id}}
+Content-Type: application/json
+
+{
+  "paymentDueAt": "2026-09-15T00:00:00Z",
+  "serviceDate": "2026-08-16T00:00:00Z",
+  "sender": {
+    "name": "Sender GmbH",
+    "street": "Hauptstr. 1",
+    "zip": "70173",
+    "city": "Stuttgart",
+    "country": "DE",
+    "vatId": "DE123456789",
+    "iban": "DE89370400440532013000"
+  },
+  "recipient": {
+    "name": "Recipient GmbH",
+    "street": "Nebenstr. 2",
+    "zip": "70174",
+    "city": "Stuttgart",
+    "country": "DE"
+  },
+  "items": [
+    { "description": "Beratung", "quantity": 3, "unitPrice": 100, "vatRate": 1900 }
+  ]
+}
+
+### Partial update (PATCH) - nur Rechnungstext ändern
+PATCH {{host}}/api/invoices/{{invoice_id}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "description": "Beratung erweitert", "quantity": 4, "unitPrice": 100, "vatRate": 1900 }
+  ]
+}
+
+### Issue invoice -> Status issued, Rechnungsnummer
+POST {{host}}/api/invoices/{{invoice_id}}/issue
+
+### Delete invoice (nur Drafts)
+DELETE {{host}}/api/invoices/{{invoice_id}}
+
+### Get non-existent invoice -> 404 INVOICE_NOT_FOUND
+GET {{host}}/api/invoices/11111111-1111-1111-1111-111111111111
+
+### Create invalid invoice -> 422 VALIDATION_FAILED
+POST {{host}}/api/invoices
+Content-Type: application/json
+
+{
+  "sender": {},
+  "recipient": {},
+  "items": []
+}
