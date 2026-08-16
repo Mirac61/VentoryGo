@@ -77,6 +77,9 @@ func (f *fakeSessionStore) remove(i int) {
 }
 
 func (f *fakeSessionStore) Get(_ context.Context, tokenHash []byte) (Session, error) {
+	if f.err != nil {
+		return Session{}, f.err
+	}
 	i := f.index(tokenHash)
 	if i < 0 {
 		return Session{}, ErrSessionNotFound
@@ -294,7 +297,7 @@ func TestLoginMapsBadCredentialsTo401WithoutLeakingWhy(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, rec.Code)
 			assert.NotEqual(t, http.StatusNotFound, rec.Code)
 
-			assert.JSONEq(t, `{"code":"INVALID_CREDENTIALS","message":"invalid email or password"}`, rec.Body.String())
+			assert.JSONEq(t, `{"code":"INVALID_CREDENTIALS","message":"invalid email or password","fields":{}}`, rec.Body.String())
 			assert.Empty(t, rec.Result().Cookies())
 		})
 	}

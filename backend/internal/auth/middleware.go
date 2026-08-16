@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"log"
 	"time"
 
@@ -22,7 +23,11 @@ func RequireAuth(sessions SessionStore, ttl time.Duration, cookieSecure bool) gi
 		hash := hashToken(token)
 		session, err := sessions.Get(c.Request.Context(), hash)
 		if err != nil {
-			httperror.WriteError(c, httperror.ErrUnauthenticated)
+			if errors.Is(err, ErrSessionNotFound) {
+				httperror.WriteError(c, httperror.ErrUnauthenticated)
+			} else {
+				httperror.WriteError(c, err)
+			}
 			c.Abort()
 			return
 		}

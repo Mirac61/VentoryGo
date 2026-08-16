@@ -18,14 +18,19 @@ func WriteError(c *gin.Context, err error) {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Code:      "INTERNAL",
 			Message:   "internal error",
+			Fields:    map[string]string{},
 			RequestID: requestID,
 		})
 		return
 	}
+	fields := appErr.Fields
+	if fields == nil {
+		fields = map[string]string{}
+	}
 	c.JSON(appErr.Status, ErrorResponse{
 		Code:      appErr.Code,
 		Message:   appErr.Message,
-		Fields:    appErr.Fields,
+		Fields:    fields,
 		RequestID: requestID,
 	})
 }

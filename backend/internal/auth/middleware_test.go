@@ -69,6 +69,17 @@ func TestMeReturnsCurrentUser(t *testing.T) {
 	assert.NotContains(t, rec.Body.String(), "argon2", "der Hash gehoert nicht in die Antwort")
 }
 
+func TestSessionStoreFailureIsNotMaskedAsUnauthorized(t *testing.T) {
+	r, store := authRouter(t, defaultSessionTTL)
+	cookie := doLogin(t, r)
+	store.err = errors.New("datenbank weg")
+
+	rec := do(r, http.MethodGet, "/api/auth/me", cookie)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"code":"INTERNAL"`)
+}
+
 func TestMeRejectsMissingOrManipulatedCookie(t *testing.T) {
 	r, _ := authRouter(t, defaultSessionTTL)
 	valid := doLogin(t, r)

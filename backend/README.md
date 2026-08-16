@@ -151,7 +151,8 @@ nicht Euro mit Nachkommastellen:
 summieren sich über mehrere Positionen) — für Rechnungen ist das inakzeptabel, daher
 Ganzzahl-Cent (`type Money int64`, siehe `internal/invoice/money.go`).
 
-`vatRate` bleibt ein Dezimalwert (`0.19` = 19 %), das ist ein Satz, kein Geldbetrag.
+`vatRate` ist ein Integer in Basispunkten (`1900` = 19 %), kein Dezimalbruch und
+kein Geldbetrag.
 
 **Breaking Change fürs Frontend:** Beträge müssen beim Anzeigen durch 100 geteilt und mit
 zwei Nachkommastellen formatiert werden, statt sie direkt als Euro-Float zu interpretieren.
