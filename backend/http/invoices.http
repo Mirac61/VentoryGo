@@ -157,7 +157,7 @@ Content-Type: application/json
   ]
 }
 
-### PATCH: §19-Befreiung auf existierender Rechnung setzen
+### PATCH: §19-Befreiung auf existierender Rechnung entfernen
 PATCH {{host}}/api/invoices/{{vat_exempt_id}}
 Content-Type: application/json
 
@@ -165,5 +165,5 @@ Content-Type: application/json
   "vatExempt": false
 }
 
-### Get §19-Rechnung -> legalNotices wieder da
+### Get Rechnung -> legalNotices leer
 GET {{host}}/api/invoices/{{vat_exempt_id}}

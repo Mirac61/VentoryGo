@@ -289,6 +289,19 @@ func TestUpdateHandler(t *testing.T) {
 
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
+
+	t.Run("exempt PUT serializes vatBreakdown as [] not null", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createInvoice(t, r)
+
+		w := doRequest(r, http.MethodPut, "/api/invoices/"+id, exemptInvoiceBody())
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &raw))
+		assert.Equal(t, []any{}, raw["vatBreakdown"])
+		assert.True(t, raw["vatExempt"].(bool))
+	})
 }
 
 func TestPartialUpdateHandler(t *testing.T) {

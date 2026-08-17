@@ -272,7 +272,7 @@ func (s *Service) Update(id string, replacement Invoice, ownerID string) (Invoic
 		}
 		replacement.VatBreakdown, replacement.NetTotal, replacement.VATAmount, replacement.GrossTotal = totals, net, vat, gross
 		if replacement.VatExempt {
-			replacement.VatBreakdown = nil
+			replacement.VatBreakdown = []VATBreakdownEntry{}
 		}
 		replacement.LegalNotices = legalNotices(replacement)
 		return replacement, nil
