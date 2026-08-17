@@ -94,3 +94,76 @@ Content-Type: application/json
   "recipient": {},
   "items": []
 }
+
+### Create §19-exempt invoice -> vat 0, gross = net, legalNotices gesetzt
+POST {{host}}/api/invoices
+Content-Type: application/json
+
+{
+  "paymentDueAt": "2026-08-30T00:00:00Z",
+  "serviceDate": "2026-08-15T00:00:00Z",
+  "vatExempt": true,
+  "sender": {
+    "name": "Klein GmbH",
+    "street": "Hauptstr. 1",
+    "zip": "70173",
+    "city": "Stuttgart",
+    "country": "DE",
+    "vatId": "DE123456789",
+    "iban": "DE89370400440532013000"
+  },
+  "recipient": {
+    "name": "Recipient GmbH",
+    "street": "Nebenstr. 2",
+    "zip": "70174",
+    "city": "Stuttgart",
+    "country": "DE"
+  },
+  "items": [
+    { "description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 0 }
+  ]
+}
+
+> {%
+    client.global.set("vat_exempt_id", response.body.id);
+%}
+
+### Create §19-exempt invoice mit Steuersatz -> 422 INVOICE_INVALID
+POST {{host}}/api/invoices
+Content-Type: application/json
+
+{
+  "paymentDueAt": "2026-08-30T00:00:00Z",
+  "serviceDate": "2026-08-15T00:00:00Z",
+  "vatExempt": true,
+  "sender": {
+    "name": "Klein GmbH",
+    "street": "Hauptstr. 1",
+    "zip": "70173",
+    "city": "Stuttgart",
+    "country": "DE",
+    "vatId": "DE123456789",
+    "iban": "DE89370400440532013000"
+  },
+  "recipient": {
+    "name": "Recipient GmbH",
+    "street": "Nebenstr. 2",
+    "zip": "70174",
+    "city": "Stuttgart",
+    "country": "DE"
+  },
+  "items": [
+    { "description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900 }
+  ]
+}
+
+### PATCH: §19-Befreiung auf existierender Rechnung setzen
+PATCH {{host}}/api/invoices/{{vat_exempt_id}}
+Content-Type: application/json
+
+{
+  "vatExempt": false
+}
+
+### Get §19-Rechnung -> legalNotices wieder da
+GET {{host}}/api/invoices/{{vat_exempt_id}}

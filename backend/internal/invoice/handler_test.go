@@ -411,3 +411,114 @@ func TestIssueHandler(t *testing.T) {
 		assert.ElementsMatch(t, []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"}, fieldNames(resp.Fields))
 	})
 }
+
+func exemptInvoiceBody() map[string]any {
+	body := validInvoiceBody()
+	body["vatExempt"] = true
+	body["items"] = []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 0}}
+	return body
+}
+
+func createExemptInvoice(t *testing.T, r *gin.Engine) string {
+	t.Helper()
+	w := doRequest(r, http.MethodPost, "/api/invoices", exemptInvoiceBody())
+	require.Equal(t, http.StatusCreated, w.Code)
+	var created Invoice
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	return created.ID
+}
+
+func TestVatExempt(t *testing.T) {
+	t.Run("exempt invoice returns vat 0, gross = net, empty breakdown and legal notice", func(t *testing.T) {
+		r, _ := setupRouter()
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", exemptInvoiceBody())
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var created Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+		assert.True(t, created.VatExempt)
+		assert.Zero(t, created.VATAmount)
+		assert.Equal(t, created.NetTotal, created.GrossTotal)
+		assert.Empty(t, created.VatBreakdown)
+		assert.Equal(t, []string{legalNoticeVatExempt}, created.LegalNotices)
+	})
+
+	t.Run("exempt serializes vatBreakdown as [] not null", func(t *testing.T) {
+		r, _ := setupRouter()
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", exemptInvoiceBody())
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var raw map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &raw))
+		assert.Equal(t, []any{}, raw["vatBreakdown"])
+	})
+
+	t.Run("exempt with non-zero vat rate returns 422", func(t *testing.T) {
+		r, _ := setupRouter()
+		body := exemptInvoiceBody()
+		body["items"] = []map[string]any{{"description": "Beratung", "quantity": 2, "unitPrice": 100, "vatRate": 1900}}
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", body)
+
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	})
+
+	t.Run("plain invoice has empty legalNotices", func(t *testing.T) {
+		r, _ := setupRouter()
+
+		w := doRequest(r, http.MethodPost, "/api/invoices", validInvoiceBody())
+
+		require.Equal(t, http.StatusCreated, w.Code)
+		var created Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+		assert.False(t, created.VatExempt)
+		assert.Empty(t, created.LegalNotices)
+	})
+
+	t.Run("patch can set and unset the flag", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createExemptInvoice(t, r)
+
+		w := doRequest(r, http.MethodPatch, "/api/invoices/"+id, map[string]any{"vatExempt": false})
+		require.Equal(t, http.StatusOK, w.Code)
+		var unset Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &unset))
+		assert.False(t, unset.VatExempt)
+		assert.Empty(t, unset.LegalNotices)
+
+		w = doRequest(r, http.MethodPatch, "/api/invoices/"+id, map[string]any{"vatExempt": true})
+		require.Equal(t, http.StatusOK, w.Code)
+		var reset Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &reset))
+		assert.True(t, reset.VatExempt)
+		assert.Equal(t, []string{legalNoticeVatExempt}, reset.LegalNotices)
+	})
+
+	t.Run("patch without the flag keeps it unchanged", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createInvoice(t, r)
+
+		w := doRequest(r, http.MethodPatch, "/api/invoices/"+id, map[string]any{"notes": "x"})
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var patched Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &patched))
+		assert.False(t, patched.VatExempt)
+	})
+
+	t.Run("exempt invoice keeps its properties after read back", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createExemptInvoice(t, r)
+
+		w := doRequest(r, http.MethodGet, "/api/invoices/"+id, nil)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var fetched Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &fetched))
+		assert.True(t, fetched.VatExempt)
+		assert.Empty(t, fetched.VatBreakdown)
+		assert.Equal(t, []string{legalNoticeVatExempt}, fetched.LegalNotices)
+	})
+}
