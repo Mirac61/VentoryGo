@@ -1,10 +1,11 @@
 package auth
 
 import (
+	"errors"
 	"log"
-	"net/http"
 	"time"
 
+	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,13 +16,19 @@ func RequireAuth(sessions SessionStore, ttl time.Duration, cookieSecure bool) gi
 	return func(c *gin.Context) {
 		token, err := c.Cookie("session")
 		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			httperror.WriteError(c, httperror.ErrUnauthenticated)
+			c.Abort()
 			return
 		}
 		hash := hashToken(token)
 		session, err := sessions.Get(c.Request.Context(), hash)
 		if err != nil {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			if errors.Is(err, ErrSessionNotFound) {
+				httperror.WriteError(c, httperror.ErrUnauthenticated)
+			} else {
+				httperror.WriteError(c, err)
+			}
+			c.Abort()
 			return
 		}
 		now := time.Now().UTC()

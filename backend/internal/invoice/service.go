@@ -1,12 +1,11 @@
 package invoice
 
 import (
-	"fmt"
 	"math"
 	"sort"
-	"strings"
 	"time"
 
+	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
 	"github.com/google/uuid"
 )
 
@@ -22,10 +21,6 @@ type Service struct {
 	repo invoiceRepository
 
 	now func() time.Time
-}
-
-type MissingFieldsError struct {
-	Fields []string
 }
 
 func NewService(repo invoiceRepository) *Service {
@@ -110,10 +105,6 @@ func validateInvoiceData(items []LineItem) error {
 	return nil
 }
 
-func (e *MissingFieldsError) Error() string {
-	return fmt.Sprintf("missing required fields: %s", strings.Join(e.Fields, ", "))
-}
-
 func validateForIssue(invoice Invoice) error {
 	var missing []string
 
@@ -134,7 +125,11 @@ func validateForIssue(invoice Invoice) error {
 	}
 
 	if len(missing) > 0 {
-		return &MissingFieldsError{Fields: missing}
+		fields := make(map[string]string, len(missing))
+		for _, name := range missing {
+			fields[name] = "required"
+		}
+		return httperror.WithFields(ErrIncomplete, fields)
 	}
 	return nil
 }

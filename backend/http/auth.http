@@ -1,0 +1,43 @@
+@host = http://localhost:8080
+
+### Register
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "max@example.com",
+  "password": "correct horse battery"
+}
+
+### Login (legt Session-Cookie an, wird automatisch weitergereicht)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "max@example.com",
+  "password": "correct horse battery"
+}
+
+### Me
+GET {{host}}/api/auth/me
+
+### Logout
+POST {{host}}/api/auth/logout
+
+### Login mit falschem Passwort -> 401 INVALID_CREDENTIALS
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "max@example.com",
+  "password": "falsch aber lang"
+}
+
+### Register mit ungültigen Feldern -> 422 VALIDATION_FAILED
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "keine-mail",
+  "password": "kurz"
+}

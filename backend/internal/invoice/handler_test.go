@@ -108,37 +108,37 @@ func TestCreate(t *testing.T) {
 		assert.Nil(t, raw["invoiceNumber"])
 	})
 
-	t.Run("missing required field returns 400", func(t *testing.T) {
+	t.Run("missing required field returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
 		delete(body, "recipient")
 
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("negative quantity returns 400", func(t *testing.T) {
+	t.Run("negative quantity returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
 		body["items"] = []map[string]any{{"description": "X", "quantity": -1, "unitPrice": 100, "vatRate": 1900}}
 
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("empty items returns 400", func(t *testing.T) {
+	t.Run("empty items returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
 		body["items"] = []map[string]any{}
 
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("malformed sender IBAN returns 400", func(t *testing.T) {
+	t.Run("malformed sender IBAN returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
 		sender := body["sender"].(map[string]any)
@@ -146,7 +146,7 @@ func TestCreate(t *testing.T) {
 
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
 	t.Run("draft with empty sender IBAN is still allowed", func(t *testing.T) {
@@ -160,14 +160,14 @@ func TestCreate(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, w.Code)
 	})
 
-	t.Run("unknown currency code returns 400", func(t *testing.T) {
+	t.Run("unknown currency code returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		body := validInvoiceBody()
 		body["currency"] = "XYZ"
 
 		w := doRequest(r, http.MethodPost, "/api/invoices", body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
 	t.Run("draft without currency defaults to EUR", func(t *testing.T) {
@@ -279,7 +279,7 @@ func TestUpdateHandler(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
-	t.Run("invalid body returns 400", func(t *testing.T) {
+	t.Run("invalid body returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		id := createInvoice(t, r)
 		body := validInvoiceBody()
@@ -287,7 +287,7 @@ func TestUpdateHandler(t *testing.T) {
 
 		w := doRequest(r, http.MethodPut, "/api/invoices/"+id, body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 }
 
@@ -309,17 +309,17 @@ func TestPartialUpdateHandler(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
-	t.Run("negative quantity in patched items returns 400", func(t *testing.T) {
+	t.Run("negative quantity in patched items returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		id := createInvoice(t, r)
 		body := map[string]any{"items": []map[string]any{{"description": "X", "quantity": -5, "unitPrice": 10, "vatRate": 1900}}}
 
 		w := doRequest(r, http.MethodPatch, "/api/invoices/"+id, body)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 
-	t.Run("zero paymentDueAt returns 400", func(t *testing.T) {
+	t.Run("zero paymentDueAt returns 422", func(t *testing.T) {
 		r, _ := setupRouter()
 		id := createInvoice(t, r)
 
@@ -327,7 +327,7 @@ func TestPartialUpdateHandler(t *testing.T) {
 			"paymentDueAt": "0001-01-01T00:00:00Z",
 		})
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 }
 
@@ -405,9 +405,9 @@ func TestIssueHandler(t *testing.T) {
 
 		require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 		var resp struct {
-			MissingFields []string `json:"missingFields"`
+			Fields map[string]string `json:"fields"`
 		}
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-		assert.ElementsMatch(t, []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"}, resp.MissingFields)
+		assert.ElementsMatch(t, []string{"serviceDate", "senderIban", "senderVatId or senderTaxNumber"}, fieldNames(resp.Fields))
 	})
 }
