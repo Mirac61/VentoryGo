@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE invoices
+DROP COLUMN vat_exempt;
+
+COMMIT;

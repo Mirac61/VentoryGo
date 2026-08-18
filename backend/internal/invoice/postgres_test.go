@@ -117,6 +117,37 @@ func TestPostgresGetByID(t *testing.T) {
 	assert.Equal(t, Money(75), fetched.Items[0].Total)
 }
 
+func TestPostgresGetByID_VatExemptRoundtrip(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+
+	invoice := draftInvoice()
+	invoice.VatExempt = true
+	invoice.Items[0].VatRate = 0
+
+	created, err := s.Create(invoice, owner)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = repo.Delete(created.ID, owner) })
+	require.True(t, created.VatExempt)
+
+	fetched, err := repo.GetByID(created.ID, owner)
+	require.NoError(t, err)
+	assert.True(t, fetched.VatExempt, "vat_exempt must survive a write/read roundtrip")
+
+	updated, err := repo.Update(created.ID, func(invoice Invoice, _ Numbering, _ func(time.Time) (int, error)) (Invoice, error) {
+		invoice.VatExempt = false
+		return invoice, nil
+	}, owner)
+	require.NoError(t, err)
+	assert.False(t, updated.VatExempt)
+
+	fetchedAgain, err := repo.GetByID(created.ID, owner)
+	require.NoError(t, err)
+	assert.False(t, fetchedAgain.VatExempt, "unsetting the flag must persist too")
+}
+
 func TestPostgresGetByID_DraftReturnsNilInvoiceNumber(t *testing.T) {
 	pool := testPool(t)
 	repo := NewPostgresRepository(pool)

@@ -7,6 +7,7 @@ type InvoicePatch struct {
 	Recipient    *Contact    `json:"recipient"`
 	Items        *[]LineItem `json:"items" binding:"omitempty,min=1,dive"`
 	Notes        *string     `json:"notes"`
+	VatExempt    *bool       `json:"vatExempt"`
 }
 
 type InvoiceStatus string
@@ -22,6 +23,7 @@ type Invoice struct {
 	ID            string              `json:"id"`
 	InvoiceNumber *string             `json:"invoiceNumber"`
 	Status        InvoiceStatus       `json:"status"`
+	VatExempt     bool                `json:"vatExempt"`
 	CreatedAt     time.Time           `json:"createdAt"`
 	IssuedAt      time.Time           `json:"issuedAt"`
 	ServiceDate   time.Time           `json:"serviceDate"`
@@ -34,6 +36,7 @@ type Invoice struct {
 	NetTotal      Money               `json:"netTotal"`
 	VATAmount     Money               `json:"vatAmount"`
 	GrossTotal    Money               `json:"grossTotal"`
+	LegalNotices  []string            `json:"legalNotices"`
 	Notes         string              `json:"notes"`
 	OwnerID       string              `json:"-"`
 }
