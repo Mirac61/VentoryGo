@@ -1,0 +1,137 @@
+.page {
+    min-height: 100vh;
+    background: var(--color-bg);
+}
+
+.content {
+    padding: 40px 48px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.companyName {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0 0 24px;
+    color: var(--color-text);
+}
+
+.statsSection {
+    margin-top: 48px;
+}
+
+.statsHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.statsTitle {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-text);
+}
+
+.refreshButton {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.refreshButton:hover:not(:disabled) {
+    text-decoration: underline;
+}
+
+.refreshButton:disabled {
+    color: var(--color-text-muted);
+    cursor: default;
+}
+
+.errorText {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-error);
+    margin: 0;
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    background: var(--color-surface);
+    border: 1px solid var(--color-stroke);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.statCard {
+    position: relative;
+    padding: 20px 24px 24px;
+    border-right: 1px solid var(--color-stroke);
+}
+
+.statCard:last-child {
+    border-right: none;
+}
+
+.statValue {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: 1.1;
+    margin-bottom: 6px;
+}
+
+.statLabel {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+.statBar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.statBarDanger {
+    background: var(--color-error);
+}
+
+.statBarPrimary {
+    background: var(--color-primary);
+}
+
+.statBarSuccess {
+    background: var(--color-success);
+}
+
+.statBarNeutral {
+    background: var(--color-secondary);
+}
+
+@media (max-width: 720px) {
+    .content {
+        padding: 24px 20px;
+    }
+
+    .statCard {
+        border-right: none;
+        border-bottom: 1px solid var(--color-stroke);
+    }
+
+    .statCard:last-child {
+        border-bottom: none;
+    }
+}
