@@ -28,4 +28,6 @@
     --shadow-elevated: 0 20px 40px -12px rgba(11, 24, 73, 0.18), 0 4px 10px -4px rgba(11, 24, 73, 0.08);
 
     --container-w: 1280px;
+
+    --gradient1: linear-gradient(90deg, #FDF5EE, #F6F8FF);
 }

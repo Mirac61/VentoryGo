@@ -2,6 +2,8 @@
 // (dev) bzw. gemeinsamem Ursprung (prod). `credentials: 'include'` explizit
 // gesetzt, macht die Absicht sichtbar und schadet same-origin nicht.
 
+
+
 export class ApiError extends Error {
     status: number
     fieldErrors?: Record<string, string>
@@ -90,3 +92,4 @@ function extractFieldErrors(payload: unknown): Record<string, string> | undefine
     }
     return undefined
 }
+
