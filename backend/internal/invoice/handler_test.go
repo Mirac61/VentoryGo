@@ -17,7 +17,10 @@ func setupRouter() (*gin.Engine, *Service) {
 	gin.SetMode(gin.TestMode)
 	repo := NewRepository()
 	service := NewService(repo)
-	handler := NewHandler(service)
+	// Ein Platzhalter-Renderer: diese Tests pruefen den Endpunkt, nicht das Layout.
+	handler := NewHandler(service, func(Invoice) ([]byte, error) {
+		return []byte("%PDF-1.7\n"), nil
+	})
 
 	r := gin.New()
 	// Steht hier fuer RequireAuth: die Handler lesen den Owner aus dem Context,
@@ -27,6 +30,7 @@ func setupRouter() (*gin.Engine, *Service) {
 	r.POST("/api/invoices/:id/issue", handler.Issue)
 	r.GET("/api/invoices", handler.GetAll)
 	r.GET("/api/invoices/:id", handler.GetByID)
+	r.GET("/api/invoices/:id/pdf", handler.DownloadPDF)
 	r.DELETE("/api/invoices/:id", handler.Delete)
 	r.PUT("/api/invoices/:id", handler.Update)
 	r.PATCH("/api/invoices/:id", handler.PartialUpdate)
@@ -197,6 +201,42 @@ func TestGetByID(t *testing.T) {
 		r, _ := setupRouter()
 
 		w := doRequest(r, http.MethodGet, "/api/invoices/does-not-exist", nil)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+}
+
+func TestDownloadPDF(t *testing.T) {
+	t.Run("draft returns a valid pdf", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createInvoice(t, r)
+
+		w := doRequest(r, http.MethodGet, "/api/invoices/"+id+"/pdf", nil)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/pdf", w.Header().Get("Content-Type"))
+		assert.Contains(t, w.Header().Get("Content-Disposition"), id+".pdf")
+		assert.True(t, bytes.HasPrefix(w.Body.Bytes(), []byte("%PDF-")), "response body should start with the PDF magic bytes")
+	})
+
+	t.Run("issued invoice names the file after its invoice number", func(t *testing.T) {
+		r, _ := setupRouter()
+		id := createInvoice(t, r)
+		w := doRequest(r, http.MethodPost, "/api/invoices/"+id+"/issue", nil)
+		require.Equal(t, http.StatusOK, w.Code)
+		var issued Invoice
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &issued))
+
+		w = doRequest(r, http.MethodGet, "/api/invoices/"+id+"/pdf", nil)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Header().Get("Content-Disposition"), *issued.InvoiceNumber+".pdf")
+	})
+
+	t.Run("unknown returns 404", func(t *testing.T) {
+		r, _ := setupRouter()
+
+		w := doRequest(r, http.MethodGet, "/api/invoices/does-not-exist/pdf", nil)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})

@@ -22,6 +22,7 @@ func newRouter(
 	grp := r.Group("/api/invoices", auth.RequireAuth(sessions, sessionTTL, cookieSecure))
 	grp.GET("", invoices.GetAll)
 	grp.GET("/:id", invoices.GetByID)
+	grp.GET("/:id/pdf", invoices.DownloadPDF)
 	grp.POST("", invoices.Create)
 	grp.POST("/:id/issue", invoices.Issue)
 	grp.DELETE("/:id", invoices.Delete)

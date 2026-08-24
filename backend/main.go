@@ -8,6 +8,7 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/auth"
 	"github.com/Mirac61/VentoryGo/backend/internal/db"
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
+	"github.com/Mirac61/VentoryGo/backend/internal/invoice/pdf"
 )
 
 func main() {
@@ -33,7 +34,9 @@ func main() {
 
 	repo := invoice.NewPostgresRepository(pool)
 	service := invoice.NewService(repo)
-	handler := invoice.NewHandler(service)
+	handler := invoice.NewHandler(service, func(inv invoice.Invoice) ([]byte, error) {
+		return pdf.Generate(inv, pdf.Default)
+	})
 	hashConcurrency, err := auth.HashConcurrencyFromEnv()
 	if err != nil {
 		log.Fatalf("invalid hash concurrency: %v", err)
