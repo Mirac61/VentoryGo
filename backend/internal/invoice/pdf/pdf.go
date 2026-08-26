@@ -14,6 +14,13 @@ import (
 var Default = Classic
 
 func Generate(inv invoice.Invoice, design Design) ([]byte, error) {
+	// Guard against callers that set VatExempt without the mandatory §19 UStG
+	// notice: omitting VAT rows without an exemption notice is not a valid
+	// German invoice.
+	if inv.VatExempt && len(inv.LegalNotices) == 0 {
+		inv.LegalNotices = invoice.LegalNotices(inv)
+	}
+
 	// Zero Design renders a blank page; fall back to default.
 	if design.sizeBody == 0 {
 		design = Default

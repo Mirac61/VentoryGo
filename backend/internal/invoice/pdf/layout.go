@@ -225,7 +225,7 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	bodyRight.Align = align.Right
 
 	for i, item := range inv.Items {
-		itemRow := m.AddRow(design.tableRowSpacing,
+		itemRow := m.AddAutoRow(
 			text.NewCol(colPos, strconv.Itoa(i+1), body),
 			text.NewCol(colDesc, item.Description, body),
 			text.NewCol(colQty, formatQuantityWithUnit(item.Quantity, item.Unit), bodyRight),
@@ -355,14 +355,14 @@ func addPaymentBlock(m core.Maroto, inv invoice.Invoice, design Design) {
 func addNotesAndLegalNotices(m core.Maroto, inv invoice.Invoice, design Design) {
 	if inv.Notes != "" {
 		m.AddRows(spacer(7))
-		m.AddRow(6, text.NewCol(gridSize, inv.Notes, props.Text{
+		m.AddAutoRow(text.NewCol(gridSize, inv.Notes, props.Text{
 			Size: design.sizeSmall, Color: design.ink,
 		}))
 	}
 	if len(inv.LegalNotices) > 0 {
 		m.AddRows(spacer(4))
 		for _, notice := range inv.LegalNotices {
-			m.AddRow(5, text.NewCol(gridSize, notice, props.Text{
+			m.AddAutoRow(text.NewCol(gridSize, notice, props.Text{
 				Size: design.sizeMicro, Style: fontstyle.Italic, Color: design.muted,
 			}))
 		}

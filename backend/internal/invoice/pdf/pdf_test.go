@@ -96,6 +96,18 @@ func TestGenerate_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, bytes.HasPrefix(doc, []byte("%PDF-")))
 	})
+
+	t.Run("VAT exempt without legal notices still renders (auto-populated notice)", func(t *testing.T) {
+		inv := base
+		inv.Items = []invoice.LineItem{{Description: "X", Total: 100}}
+		inv.VatExempt = true
+		inv.LegalNotices = nil
+
+		doc, err := Generate(inv, Default)
+
+		require.NoError(t, err)
+		assert.True(t, bytes.HasPrefix(doc, []byte("%PDF-")))
+	})
 }
 
 func TestParseHexColor_EdgeCases(t *testing.T) {

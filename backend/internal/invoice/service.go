@@ -178,7 +178,7 @@ func (s *Service) Create(invoice Invoice, ownerID string) (Invoice, error) {
 	if invoice.VatExempt {
 		invoice.VatBreakdown = []VATBreakdownEntry{}
 	}
-	invoice.LegalNotices = legalNotices(invoice)
+	invoice.LegalNotices = LegalNotices(invoice)
 
 	return s.repo.Create(invoice, ownerID)
 }
@@ -206,7 +206,7 @@ func (s *Service) GetByID(id string, ownerID string) (Invoice, error) {
 	if err := fillBreakdown(&invoice); err != nil {
 		return Invoice{}, err
 	}
-	invoice.LegalNotices = legalNotices(invoice)
+	invoice.LegalNotices = LegalNotices(invoice)
 	return invoice, nil
 }
 
@@ -222,7 +222,7 @@ func (s *Service) GetAll(ownerID string) ([]Invoice, error) {
 		if err := fillBreakdown(&invoices[i]); err != nil {
 			return nil, err
 		}
-		invoices[i].LegalNotices = legalNotices(invoices[i])
+		invoices[i].LegalNotices = LegalNotices(invoices[i])
 	}
 	return invoices, nil
 }
@@ -274,7 +274,7 @@ func (s *Service) Update(id string, replacement Invoice, ownerID string) (Invoic
 		if replacement.VatExempt {
 			replacement.VatBreakdown = []VATBreakdownEntry{}
 		}
-		replacement.LegalNotices = legalNotices(replacement)
+		replacement.LegalNotices = LegalNotices(replacement)
 		return replacement, nil
 	}
 	return s.repo.Update(id, mutate, ownerID)
@@ -319,7 +319,7 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch, ownerID string) (
 		if invoice.VatExempt {
 			invoice.VatBreakdown = []VATBreakdownEntry{}
 		}
-		invoice.LegalNotices = legalNotices(invoice)
+		invoice.LegalNotices = LegalNotices(invoice)
 		return invoice, nil
 	}
 	return s.repo.Update(id, mutate, ownerID)
@@ -349,7 +349,7 @@ func (s *Service) Issue(id string, ownerID string) (Invoice, error) {
 		invoice.Status = StatusIssued
 		invoice.IssuedAt = now
 		invoice.InvoiceNumber = &number
-		invoice.LegalNotices = legalNotices(invoice)
+		invoice.LegalNotices = LegalNotices(invoice)
 		return invoice, nil
 	}, ownerID)
 }
