@@ -1,6 +1,6 @@
 module github.com/Mirac61/VentoryGo/backend
 
-go 1.26.3
+go 1.27.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
