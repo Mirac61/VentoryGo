@@ -27,7 +27,7 @@ type Design struct {
 	letterheadHeight float64
 	logoOnRight      bool
 	logoScale        float64
-	accentBarHeight  float64
+	letterheadRule   float64
 
 	tableHeadRule   bool
 	tableRowRule    bool
@@ -36,6 +36,10 @@ type Design struct {
 
 	totalBorder border.Type
 	totalRule   float64
+
+	footerRuleIsAccent bool
+	totalInkIsAccent   bool
+	monochrome         bool
 
 	// Computed by resolve().
 	accent       *props.Color
@@ -53,11 +57,15 @@ var (
 	ruleGrey  = &props.Color{Red: 203, Green: 208, Blue: 214}
 	ruleLight = &props.Color{Red: 228, Green: 231, Blue: 235}
 
-	defaultBrandColor = &props.Color{Red: 62, Green: 88, Blue: 128}
+	defaultBrandColor = &props.Color{Red: 32, Green: 84, Blue: 132}
 )
 
 func (t Design) resolve(brand *props.Color) Design {
 	accent := brand
+	if t.monochrome {
+		// Reference classic: no colour anywhere, even with a brand colour set.
+		accent = nil
+	}
 	if accent == nil {
 		accent = t.defaultAccent
 	}
@@ -137,55 +145,65 @@ func parseHexColor(value string) *props.Color {
 }
 
 var Classic = Design{
-	sizeCompany: 15,
-	sizeSubject: 11.5,
-	sizeBody:    9.5,
-	sizeSmall:   8,
-	sizeMicro:   6.5,
-	sizeTotal:   12.5,
+	sizeCompany: 13,
+	sizeSubject: 12,
+	sizeBody:    10,
+	sizeSmall:   8.5,
+	sizeMicro:   7,
+	sizeTotal:   11,
 
 	ink:           inkBlack,
 	muted:         inkGrey,
 	hairline:      ruleGrey,
 	defaultAccent: inkBlack,
 
+	monochrome: true,
+
 	letterheadHeight: 20,
-	logoOnRight:      true,
+	logoOnRight:      false,
 	logoScale:        85,
+	letterheadRule:   0.3,
 
 	tableHeadRule:   true,
 	tableRowRule:    true,
-	tableHeadUpper:  true,
+	tableHeadUpper:  false,
 	tableRowSpacing: 7,
 
-	totalBorder: border.Full,
+	totalBorder: border.None,
+	totalRule:   0.3,
 }
 
 var Modern = Design{
 	sizeCompany: 16,
-	sizeSubject: 12,
+	sizeSubject: 15,
 	sizeBody:    9.5,
-	sizeSmall:   8,
-	sizeMicro:   6.5,
-	sizeTotal:   13.5,
+	sizeSmall:   8.5,
+	sizeMicro:   7,
+	sizeTotal:   12,
 
 	ink:           inkBlack,
 	muted:         inkGrey,
 	hairline:      ruleLight,
 	defaultAccent: defaultBrandColor,
 
-	infoOpacity:      0.07,
+	infoOpacity:      0,
 	tableHeadOpacity: 0.16,
-	zebraOpacity:     0.05,
-	totalOpacity:     0.22,
+	zebraOpacity:     0,
+	totalOpacity:     0,
 
 	letterheadHeight: 20,
+	logoOnRight:      true,
 	logoScale:        85,
-	accentBarHeight:  2,
+	letterheadRule:   0.6,
 
-	tableHeadRule:   true,
-	tableHeadUpper:  true,
-	tableRowSpacing: 7,
+	tableHeadRule:   false,
+	tableRowRule:    true,
+	tableHeadUpper:  false,
+	tableRowSpacing: 8,
+
+	totalRule:          0.4,
+	footerRuleIsAccent: true,
+	totalInkIsAccent:   true,
 }
 
 var Minimal = Design{

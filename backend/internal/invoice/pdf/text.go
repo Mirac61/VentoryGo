@@ -119,10 +119,16 @@ func formatQuantity(q invoice.Quantity) string {
 }
 
 func formatMoney(amount invoice.Money, currency string) string {
-	if currency == "" {
-		return formatAmount(amount) + " "
+	return formatAmount(amount) + " " + currencySymbol(currency)
+}
+
+// German invoices spell out the euro sign rather than the ISO code; other
+// currencies keep their code since they have no single-glyph convention.
+func currencySymbol(currency string) string {
+	if currency == "EUR" {
+		return "€"
 	}
-	return formatAmount(amount) + " " + currency
+	return currency
 }
 
 // Like formatMoney without the currency.

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/johnfercher/maroto/v2/pkg/props"
 	"github.com/stretchr/testify/assert"
@@ -19,12 +20,13 @@ func TestFormatMoney_EdgeCases(t *testing.T) {
 		currency string
 		want     string
 	}{
-		{name: "zero", amount: 0, currency: "EUR", want: "0,00 EUR"},
-		{name: "negative amount below one unit keeps its sign", amount: -50, currency: "EUR", want: "-0,50 EUR"},
-		{name: "negative amount at exactly one unit", amount: -100, currency: "EUR", want: "-1,00 EUR"},
-		{name: "negative single cent keeps its sign", amount: -1, currency: "EUR", want: "-0,01 EUR"},
-		{name: "large amount uses thousands separator", amount: 123456789, currency: "EUR", want: "1.234.567,89 EUR"},
+		{name: "zero", amount: 0, currency: "EUR", want: "0,00 €"},
+		{name: "negative amount below one unit keeps its sign", amount: -50, currency: "EUR", want: "-0,50 €"},
+		{name: "negative amount at exactly one unit", amount: -100, currency: "EUR", want: "-1,00 €"},
+		{name: "negative single cent keeps its sign", amount: -1, currency: "EUR", want: "-0,01 €"},
+		{name: "large amount uses thousands separator", amount: 123456789, currency: "EUR", want: "1.234.567,89 €"},
 		{name: "empty currency", amount: 100, currency: "", want: "1,00 "},
+		{name: "non-euro currency keeps its ISO code", amount: 100, currency: "USD", want: "1,00 USD"},
 	}
 
 	for _, test := range tests {
@@ -184,5 +186,30 @@ func TestGenerate_BrandColour(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotEqual(t, plain, branded, "the accent colour must reach the page")
+	})
+}
+
+func TestGenerate_CreationDate(t *testing.T) {
+	inv := invoice.Invoice{
+		Currency:  "EUR",
+		Items:     []invoice.LineItem{{Description: "X", Total: 100}},
+		CreatedAt: time.Date(2026, 1, 15, 10, 30, 45, 0, time.UTC),
+	}
+
+	t.Run("the invoice's CreatedAt reaches the PDF's /CreationDate, not time.Now", func(t *testing.T) {
+		doc, err := Generate(inv, Default)
+
+		require.NoError(t, err)
+		assert.Contains(t, string(doc), "D:20260115103045", "the PDF metadata must carry the caller-supplied timestamp")
+	})
+
+	t.Run("a different CreatedAt changes the metadata accordingly", func(t *testing.T) {
+		other := inv
+		other.CreatedAt = inv.CreatedAt.Add(24 * time.Hour)
+
+		doc, err := Generate(other, Default)
+
+		require.NoError(t, err)
+		assert.Contains(t, string(doc), "D:20260116103045")
 	})
 }

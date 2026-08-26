@@ -49,6 +49,9 @@ const (
 
 const lineHeight = 4.2
 
+// Height of the row that carries the letterhead rule.
+const letterheadRuleRow = 2.0
+
 func addLetterhead(m core.Maroto, inv invoice.Invoice, design Design) {
 	nameAlign := align.Left
 	if !design.logoOnRight {
@@ -58,7 +61,7 @@ func addLetterhead(m core.Maroto, inv invoice.Invoice, design Design) {
 		text.New(inv.Sender.Name, props.Text{
 			Size:  design.sizeCompany,
 			Style: fontstyle.Bold,
-			Color: design.ink,
+			Color: design.accent,
 			Align: nameAlign,
 			Top:   1,
 		}),
@@ -78,9 +81,12 @@ func addLetterhead(m core.Maroto, inv invoice.Invoice, design Design) {
 		m.AddRow(design.letterheadHeight, logoCol, nameCol)
 	}
 
-	if design.accentBarHeight > 0 {
-		m.AddRow(design.accentBarHeight, col.New(gridSize)).
-			WithStyle(&props.Cell{BackgroundColor: design.accent})
+	if design.letterheadRule > 0 {
+		m.AddRow(letterheadRuleRow, col.New(gridSize).WithStyle(&props.Cell{
+			BorderType:      border.Bottom,
+			BorderColor:     design.accent,
+			BorderThickness: design.letterheadRule,
+		}))
 	}
 }
 
@@ -108,7 +114,11 @@ func imageExtension(data []byte) (extension.Type, bool) {
 }
 
 func addAddressAndInfoBlock(m core.Maroto, inv invoice.Invoice, design Design) {
-	m.AddRows(spacer(addressFieldTop - pageTopMargin - design.letterheadHeight - design.accentBarHeight))
+	headroom := design.letterheadHeight
+	if design.letterheadRule > 0 {
+		headroom += letterheadRuleRow
+	}
+	m.AddRows(spacer(addressFieldTop - pageTopMargin - headroom))
 
 	addressCol := col.New(colAddress).Add(
 		text.New(senderOneLiner(inv.Sender), props.Text{
@@ -169,7 +179,7 @@ func addSubject(m core.Maroto, inv invoice.Invoice, design Design) {
 	m.AddRow(9, text.NewCol(gridSize, subject, props.Text{
 		Size:  design.sizeSubject,
 		Style: fontstyle.Bold,
-		Color: design.ink,
+		Color: design.accent,
 		Top:   1,
 	}))
 	m.AddRow(7, text.NewCol(gridSize, serviceSentence(inv), props.Text{
@@ -195,12 +205,12 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	headRight.Align = align.Right
 
 	headerRow := m.AddRow(design.tableRowSpacing+1,
-		text.NewCol(colPos, label("Pos"), head),
+		text.NewCol(colPos, label("Pos."), head),
 		text.NewCol(colDesc, label("Bezeichnung"), head),
 		text.NewCol(colQty, label("Menge"), headRight),
-		text.NewCol(colPrice, label("Einzelpreis")+" "+inv.Currency, headRight),
+		text.NewCol(colPrice, label("Einzelpreis"), headRight),
 		text.NewCol(colVat, label("Steuer"), headRight),
-		text.NewCol(colAmount, label("Betrag")+" "+inv.Currency, headRight),
+		text.NewCol(colAmount, label("Betrag"), headRight),
 	)
 	headerStyle := &props.Cell{BackgroundColor: design.tableHeadBg}
 	if design.tableHeadRule {
@@ -269,21 +279,25 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 			col.New(totalsIndent),
 			col.New(totalsLabel+totalsValue).WithStyle(&props.Cell{
 				BorderType:      border.Top,
-				BorderColor:     design.ink,
+				BorderColor:     design.accent,
 				BorderThickness: design.totalRule,
 			}),
 		)
 	}
 
 	const totalRowHeight = 13
+	totalColour := design.totalInk
+	if design.totalInkIsAccent {
+		totalColour = design.accent
+	}
 	totalRow := m.AddRow(totalRowHeight,
 		col.New(totalsIndent),
 		text.NewCol(totalsLabel, "Gesamtbetrag", props.Text{
-			Size: design.sizeSmall, Style: fontstyle.Bold, Color: design.totalInk,
+			Size: design.sizeSmall, Style: fontstyle.Bold, Color: totalColour,
 			Align: align.Right, Top: centerTop(totalRowHeight, design.sizeSmall), Left: 3,
 		}),
 		text.NewCol(totalsValue, formatMoney(inv.GrossTotal, inv.Currency), props.Text{
-			Size: design.sizeTotal, Style: fontstyle.Bold, Color: design.totalInk,
+			Size: design.sizeTotal, Style: fontstyle.Bold, Color: totalColour,
 			Align: align.Right, Top: centerTop(totalRowHeight, design.sizeTotal), Right: 3,
 		}),
 	)
@@ -403,9 +417,13 @@ func footerRows(inv invoice.Invoice, design Design) []core.Row {
 }
 
 func footerRule(design Design) core.Row {
+	colour := design.hairline
+	if design.footerRuleIsAccent {
+		colour = design.accent
+	}
 	return row.New(2).Add(col.New(gridSize).WithStyle(&props.Cell{
 		BorderType:      border.Top,
-		BorderColor:     design.hairline,
+		BorderColor:     colour,
 		BorderThickness: 0.2,
 	}))
 }

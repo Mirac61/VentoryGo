@@ -1,0 +1,8 @@
+Liberation Sans (Regular, Bold, Italic, BoldItalic)
+
+Licensed under the SIL Open Font License, Version 1.1.
+Source: https://github.com/liberationfonts/liberation-fonts
+
+Chosen because it is metric-compatible with Arial (matches the previous
+default rendering) and, unlike the PDF core fonts, can be embedded so
+umlauts and the euro sign render correctly on any viewer.

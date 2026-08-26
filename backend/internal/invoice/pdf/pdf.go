@@ -6,6 +6,7 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
 	"github.com/johnfercher/maroto/v2"
 	"github.com/johnfercher/maroto/v2/pkg/config"
+	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
 	"github.com/johnfercher/maroto/v2/pkg/consts/pagesize"
 	"github.com/johnfercher/maroto/v2/pkg/props"
 )
@@ -19,6 +20,14 @@ func Generate(inv invoice.Invoice, design Design) ([]byte, error) {
 	}
 	design = design.resolve(parseHexColor(inv.Sender.AccentColor))
 
+	fonts, err := embeddedFonts()
+	if err != nil {
+		return nil, err
+	}
+
+	// The invoice's own CreatedAt becomes the PDF's creation timestamp
+	// instead of time.Now(), so generating the same invoice twice yields
+	// byte-identical output.
 	cfg := config.NewBuilder().
 		WithPageSize(pagesize.A4).
 		WithLeftMargin(pageLeftMargin).
@@ -26,6 +35,9 @@ func Generate(inv invoice.Invoice, design Design) ([]byte, error) {
 		WithTopMargin(pageTopMargin).
 		WithBottomMargin(pageBottomMargin).
 		WithMaxGridSize(gridSize).
+		WithCustomFonts(fonts).
+		WithDefaultFont(&props.Font{Family: fontFamily, Size: design.sizeBody, Style: fontstyle.Normal}).
+		WithCreationDate(inv.CreatedAt).
 		WithPageNumber(props.PageNumber{
 			Pattern: "Seite {current} von {total}",
 			Place:   props.RightBottom,

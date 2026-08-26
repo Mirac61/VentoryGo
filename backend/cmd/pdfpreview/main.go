@@ -6,6 +6,8 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -13,8 +15,8 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice/pdf"
 )
 
-// Generates preview PDFs for each design and edge case in the current directory.
 func main() {
+	outDir := outputDir()
 	inv := sampleInvoice()
 
 	designs := []struct {
@@ -27,7 +29,7 @@ func main() {
 	}
 
 	for _, d := range designs {
-		write("preview-"+d.name+".pdf", d.design, inv)
+		write(outDir, "preview-"+d.name+".pdf", d.design, inv)
 	}
 
 	for _, brand := range []struct{ name, hex string }{
@@ -37,20 +39,29 @@ func main() {
 	} {
 		branded := inv
 		branded.Sender.AccentColor = brand.hex
-		write("preview-"+brand.name+".pdf", pdf.Modern, branded)
+		write(outDir, "preview-"+brand.name+".pdf", pdf.Modern, branded)
 	}
 
-	write("preview-long.pdf", pdf.Modern, longInvoice())
-	write("preview-exempt.pdf", pdf.Modern, exemptInvoice())
-	write("preview-nologo.pdf", pdf.Classic, noLogoInvoice())
+	write(outDir, "preview-long.pdf", pdf.Modern, longInvoice())
+	write(outDir, "preview-exempt.pdf", pdf.Modern, exemptInvoice())
+	write(outDir, "preview-nologo.pdf", pdf.Classic, noLogoInvoice())
 }
 
-func write(name string, design pdf.Design, inv invoice.Invoice) {
+// Previews land next to this file, regardless of the working directory.
+func outputDir() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "."
+	}
+	return filepath.Dir(file)
+}
+
+func write(dir, name string, design pdf.Design, inv invoice.Invoice) {
 	pdfBytes, err := pdf.Generate(inv, design)
 	if err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(name, pdfBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), pdfBytes, 0o644); err != nil {
 		panic(err)
 	}
 }
