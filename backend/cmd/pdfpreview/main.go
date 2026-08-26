@@ -61,7 +61,7 @@ func write(dir, name string, design pdf.Design, inv invoice.Invoice) {
 	if err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, name), pdfBytes, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, name), pdfBytes, 0o600); err != nil {
 		panic(err)
 	}
 }
