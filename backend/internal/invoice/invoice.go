@@ -59,6 +59,9 @@ type Issuer struct {
 	IBAN      string `json:"iban" binding:"omitempty,iban"`
 	BIC       string `json:"bic"`
 	BankName  string `json:"bankName"`
+	// Logo and AccentColor comes from the profile of the tennant, so json:"-"
+	Logo        []byte `json:"-"`
+	AccentColor string `json:"-"`
 }
 
 type LineItem struct {

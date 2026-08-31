@@ -40,6 +40,10 @@ var (
 	}
 )
 
-// ErrMissingOwner stays a plain error: missing user_id means the middleware
-// is broken, not the request, so it falls into WriteError's 500 branch.
-var ErrMissingOwner = errors.New("owner id missing from context")
+// Both stay plain errors on purpose: they report a broken server, not a bad
+// request. With no *httperror.Error to unwrap, WriteError logs them and falls
+// into its 500 branch instead of telling the client what to fix.
+var (
+	ErrMissingOwner  = errors.New("owner id missing from context")
+	ErrNoPDFRenderer = errors.New("pdf renderer not configured")
+)

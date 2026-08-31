@@ -13,6 +13,7 @@ import (
 
 	"github.com/Mirac61/VentoryGo/backend/internal/auth"
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
+	"github.com/Mirac61/VentoryGo/backend/internal/invoice/pdf"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +64,8 @@ func tenantRouter(t *testing.T) *gin.Engine {
 		tokenKey(tokenA): uuid.New(),
 		tokenKey(tokenB): uuid.New(),
 	}}
-	invoices := invoice.NewHandler(invoice.NewService(invoice.NewRepository()))
+	invoices := invoice.NewHandler(invoice.NewService(invoice.NewRepository()),
+		func(inv invoice.Invoice) ([]byte, error) { return pdf.Generate(inv, pdf.Default) })
 	hasher, err := auth.NewHasher(1)
 	require.NoError(t, err)
 	authService := auth.NewServiceWithSessionTTL(stubUserRepo{}, sessions, time.Hour, hasher)

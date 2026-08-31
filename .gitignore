@@ -1,6 +1,8 @@
 # Go
 backend/tmp/
 backend/backend
+backend/cmd/pdfpreview/preview*.pdf
+backend/cmd/pdfpreview/*.png
 *.exe
 
 # Node/React

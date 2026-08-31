@@ -49,13 +49,19 @@ func ownerFromContext(c *gin.Context) (string, error) {
 	return userID.String(), nil
 }
 
+// PDFRenderer is injected because pdf imports this package; calling it
+// directly from here would be an import cycle.
+type PDFRenderer func(Invoice) ([]byte, error)
+
 type Handler struct {
-	service *Service
+	service   *Service
+	renderPDF PDFRenderer
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *Service, renderPDF PDFRenderer) *Handler {
 	return &Handler{
-		service: service,
+		service:   service,
+		renderPDF: renderPDF,
 	}
 }
 
@@ -159,6 +165,35 @@ func (h *Handler) PartialUpdate(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, updated)
+}
+
+func (h *Handler) DownloadPDF(c *gin.Context) {
+	ownerID, err := ownerFromContext(c)
+	if err != nil {
+		httperror.WriteError(c, err)
+		return
+	}
+	if h.renderPDF == nil {
+		httperror.WriteError(c, ErrNoPDFRenderer)
+		return
+	}
+	id := c.Param("id")
+	inv, err := h.service.GetByID(id, ownerID)
+	if err != nil {
+		httperror.WriteError(c, err)
+		return
+	}
+	pdfBytes, err := h.renderPDF(inv)
+	if err != nil {
+		httperror.WriteError(c, err)
+		return
+	}
+	filename := id
+	if inv.InvoiceNumber != nil {
+		filename = *inv.InvoiceNumber
+	}
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename+".pdf"))
+	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
 
 func (h *Handler) Issue(c *gin.Context) {
