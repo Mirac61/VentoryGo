@@ -78,16 +78,27 @@ export default function Register() {
 
     return (
         <AuthCard
-            title="Willkommen!"
-            subtitle="Registriere, um fortzufahren."
+            title="Melde dich an, um fortzufahren"
             error={error}
             footer={
                 <p className={formStyles.footer}>
-                    Du hast schon ein Konto? <Link to="/login">Melde dich an!</Link>
+                    Schon ein Konto? <Link to="/login">Melde dich an!</Link>
                 </p>
             }
         >
             <form onSubmit={handleSubmit} noValidate>
+                {/* Backend kennt aktuell kein Namensfeld (users hat nur email +
+                    password_hash) - Feld ist sichtbar wie im Design, aber
+                    deaktiviert, bis das Backend es unterstützt. */}
+                <Field
+                    label="Name"
+                    type="text"
+                    autoComplete="name"
+                    disabled
+                    title="Noch nicht verfügbar"
+                    value=""
+                    onChange={() => {}}
+                />
                 <Field
                     label="E-Mail"
                     type="email"
@@ -119,6 +130,17 @@ export default function Register() {
 
                 <button type="submit" className={formStyles.submit} disabled={submitting}>
                     {submitting ? 'Wird registriert …' : 'Registrieren'}
+                </button>
+
+                {/* Kein OAuth-Handler im Backend (ADR 0001) - sichtbar, aber
+                    deaktiviert. */}
+                <button
+                    type="button"
+                    className={formStyles.oauthButton}
+                    disabled
+                    title="Noch nicht verfügbar"
+                >
+                    Mit GitHub anmelden
                 </button>
             </form>
         </AuthCard>

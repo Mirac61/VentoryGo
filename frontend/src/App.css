@@ -1,8 +1,9 @@
-@import url('../../shared/fonts/Inter/inter.css');
+@import url('../../shared/fonts/Overused_Grotesk/overused-grotesk.css');
+
 :root {
-    /* --- Brand / Palette --- */
-    --color-primary: #0B1849;      /* navy — headings, nav, footer bg */
-    --color-secondary: #A5B8FF;    /* periwinkle — soft accents */
+    /* Brand / Palette */
+    --color-primary: #0A369D;      /* navy — headings, nav, footer bg */
+    --color-secondary: #4162E3;    /* periwinkle — soft accents */
     --color-accent: #2D493D;       /* deep green — CTAs, links */
 
     --color-bg: #FAFAFA;
@@ -19,8 +20,15 @@
 
     --color-stroke: rgba(0, 0, 0, 0.22);
 
-    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --font-display: 'InterDisplay', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    /* Invoice semantic states */
+    --invoice-draft: #D97706;
+    --invoice-saved: #4B5563;
+    --invoice-sent-unpaid: #2563EB;
+    --invoice-paid: #059669;
+    --invoice-overdue: #DC2626;
+
+    --font-sans: 'Overused Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-display: 'Overused Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
     --radius-sm: 6px;
     --radius-md: 8px;
