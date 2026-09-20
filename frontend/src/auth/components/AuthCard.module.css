@@ -1,143 +1,115 @@
 .page {
+    /* Einzige Quelle fuer die Kopfzeilenhoehe: sowohl .pageLogo als auch
+       .headerLine (Unterkante) rechnen darueber, damit Logo-Padding und
+       Linienposition nicht auseinanderlaufen koennen. */
+    --header-padding-y: 28px;
+    --header-line-height: 48px;
+
+    position: relative;
     min-height: 100vh;
+    background: var(--color-bg);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.gridLines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.gridLineVertical {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--color-stroke, rgba(0, 0, 0, 0.12));
+}
+
+/* Unterkante der Kopfzeile, nur in der linken/rechten Spalte - in der
+   mittleren Spalte (wo das Logo sitzt) bleibt sie ausgespart. */
+.headerLine {
+    position: absolute;
+    top: calc(var(--header-padding-y) * 2 + var(--header-line-height));
+    height: 1px;
+    background: var(--color-stroke, rgba(0, 0, 0, 0.12));
+}
+
+.pageLogo {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    padding: var(--header-padding-y) 40px;
+    border: 1px solid var(--color-stroke);
+}
+
+.pageLogoImg {
+    height: var(--header-line-height);
+    width: auto;
+}
+
+.center {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 48px 24px;
-    background: var(--color-bg);
+    padding:
+            clamp(4rem, 15dvh, 18rem)
+            clamp(1.5rem, 4vw, 3rem)
+            clamp(2rem, 8dvh, 6rem);
+
+    margin-inline: auto;
     box-sizing: border-box;
 }
 
 .card {
     width: 100%;
-    max-width: 1363px;
-    aspect-ratio: 1363 / 686;
-    background: var(--color-field-bg);
-    border-radius: var(--radius-lg);
-    padding: 56px;
+    max-width: 528px;
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-elevated);
+    padding: 48px 52px;
     box-sizing: border-box;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 64px;
-    align-items: center;
-    overflow: hidden;
-}
-
-/* --- Left column: brand + heading --- */
-
-.left {
-    display: flex;
-    flex-direction: column;
-    gap: 96px;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.logo {
-    height: 66px;
-    width: auto;
-}
-
-.brandMark {
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary) 55%, #e8a25f 100%);
-    transform: rotate(45deg);
-    flex-shrink: 0;
-}
-
-.brandName {
-    font-family: var(--font-display);
-    font-size: 28px;
-    font-weight: 600;
-    color: var(--color-text);
-}
-
-.heading {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
 }
 
 .title {
     font-family: var(--font-display);
-    margin: 0;
-    font-size: 40px;
-    font-weight: 500;
+    margin: 0 0 12px;
+    font-size: 22px;
+    font-weight: 400;
     color: var(--color-text);
 }
 
-.subtitle {
-    font-family: var(--font-sans);
-    margin: 0;
-    font-size: 18px;
-    color: var(--color-text-muted);
-}
-
-/* --- Right column: error bar + form --- */
-
-.right {
-    display: flex;
-    flex-direction: column;
-    max-height: 100%;
-    overflow-y: auto;
-    padding-right: 4px;
-}
-
-.errorBar {
+.errorText {
     display: flex;
     align-items: center;
-    gap: 10px;
-    background: var(--color-error);
-    color: #fff;
-    border-radius: var(--radius-md);
-    padding: 12px 18px;
-    margin-bottom: 24px;
+    gap: 8px;
+    color: var(--color-error);
     font-family: var(--font-sans);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 0.9rem;
+    font-weight: 400;
+    margin-bottom: 20px;
 }
 
-.errorBar svg {
+.errorText svg {
     flex-shrink: 0;
 }
 
-/* --- Responsive fallback: stack columns below ~860px --- */
-
-@media (max-width: 860px) {
-    .card {
-        aspect-ratio: unset;
-        grid-template-columns: 1fr;
-        gap: 40px;
-        padding: 40px 28px;
-    }
-
-    .left {
-        gap: 32px;
-    }
-
-    .right {
-        max-height: none;
-        overflow-y: visible;
-    }
-
-    .title {
-        font-size: 32px;
-    }
-}
-
 @media (max-width: 480px) {
+    .page {
+        --header-padding-y: 20px;
+    }
+
     .card {
-        border-radius: 16px;
         padding: 28px 20px;
     }
 
-    .title {
-        font-size: 28px;
+    /* Auf schmalen Screens wirkt das Drei-Spalten-Raster beengt statt
+       großzügig wie im Desktop-Mockup - daher ausgeblendet. */
+    .gridLines {
+        display: none;
     }
 }

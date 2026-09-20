@@ -1,29 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation } from 'react-router'
-import {
-    HouseIcon,
-    UserIcon,
-    ReceiptIcon,
-    UsersIcon,
-    CaretUpDownIcon,
-} from '@phosphor-icons/react'
 import { useAuth } from '../auth/AuthContext.ts'
 import styles from './Navbar.module.css'
-import logo from '../assets/VentoryGo.png'
+import placeholderAvatar from '../assets/avatar-placeholder.jpg'
 
-// Kundenübersicht, Rechnungsübersicht und Teams & Mitarbeiter haben noch keine
-// eigenen Routen -- die Links bleiben bewusst inert (kein <Link>, kein Klick-
-// Handler), bis die jeweiligen Seiten existieren. Nur "Home" navigiert wirklich.
-const NAV_ITEMS = [
-    { label: 'Home', icon: HouseIcon, path: '/dashboard' },
-    { label: 'Kundenübersicht', icon: UserIcon, path: null },
-    { label: 'Rechnungsübersicht', icon: ReceiptIcon, path: null },
-    { label: 'Teams & Mitarbeiter', icon: UsersIcon, path: null },
-] as const
+interface NavbarProps {
+    title: string
+}
 
-export function Navbar() {
-    const { user, logout } = useAuth()
-    const location = useLocation()
+// Ersetzt die bisherige horizontale Navigation -- die Nav-Items sind in die
+// Sidebar gewandert (siehe Sidebar.tsx). Was bleibt: der Seitentitel und das
+// Konto-Menü mit Abmelden, das vorher hier am Rechts-Rand hing.
+export function Navbar({ title }: NavbarProps) {
+    const { logout } = useAuth()
     const [menuOpen, setMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
 
@@ -41,36 +29,20 @@ export function Navbar() {
 
     return (
         <nav className={styles.navbar}>
-            <div className={styles.left}>
-                <img src={logo} alt="VentoryGo" className={styles.logo} />
-
-                <div className={styles.navItems}>
-                    {NAV_ITEMS.map(({ label, icon: Icon, path }) => {
-                        const active = path !== null && location.pathname === path
-                        const content = (
-                            <>
-                                <Icon size={18} weight={active ? 'fill' : 'regular'} />
-                                <span>{label}</span>
-                            </>
-                        )
-
-                        return path ? (
-                            <Link key={label} to={path} className={`${styles.navItem} ${active ? styles.navItemActive : ''}`}>
-                                {content}
-                            </Link>
-                        ) : (
-                            <span key={label} className={styles.navItem} aria-disabled="true">
-                                {content}
-                            </span>
-                        )
-                    })}
-                </div>
-            </div>
+            <h1 className={styles.title}>{title}</h1>
 
             <div className={styles.account} ref={menuRef}>
-                <button type="button" className={styles.accountButton} onClick={() => setMenuOpen((open) => !open)}>
-                    <span className={styles.accountEmail}>{user?.email}</span>
-                    <CaretUpDownIcon size={16} />
+                {/* Platzhalterbild bis ein echtes Profilbild existiert (kein
+                    entsprechendes Feld auf User, siehe AuthContext.ts). */}
+                <button
+                    type="button"
+                    className={styles.accountButton}
+                    onClick={() => setMenuOpen((open) => !open)}
+                    aria-label="Konto-Menü"
+                    aria-expanded={menuOpen}
+                >
+                    <img src={placeholderAvatar} alt="" className={styles.avatar} />
+
                 </button>
 
                 {menuOpen && (

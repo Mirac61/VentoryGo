@@ -2,13 +2,13 @@
     width: 100%;
     box-sizing: border-box;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     background: var(--color-primary);
     color: #fff;
     font-family: var(--font-sans);
     font-size: 16px;
-    font-weight: 600;
-    padding: 15px;
+    font-weight: 400;
+    padding: 12px;
     margin-top: 8px;
     cursor: pointer;
     transition: opacity 0.15s ease, background 0.15s ease;
@@ -23,6 +23,30 @@
     cursor: not-allowed;
 }
 
+/* Zweiter Button unterhalb von .submit, schwarz statt navy - fuer "Mit
+   GitHub anmelden". Bewusst noch ohne echte Funktion (kein OAuth-Handler im
+   Backend, siehe ADR 0001) - disabled, damit das nicht wie ein kaputter
+   Login-Button wirkt, sondern klar als "kommt noch" erkennbar ist. */
+.oauthButton {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: #000;
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    padding: 12px;
+    margin-top: 16px;
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
 .footer {
     margin-top: 24px;
     text-align: center;
@@ -33,7 +57,7 @@
 
 .footer a {
     color: var(--color-primary);
-    font-weight: 600;
+    font-weight: 400;
     text-decoration: none;
 }
 
@@ -52,4 +76,17 @@
 
 .forgotPassword:hover {
     text-decoration: underline;
+}
+
+/* Nicht anklickbar: kein Passwort-vergessen-Flow im Backend (offener Punkt
+   in ADR 0001). Optisch wie ein Link, aber ohne Cursor/Hover-Feedback. */
+.forgotPasswordDisabled {
+    display: block;
+    margin: -8px 0 20px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    cursor: not-allowed;
+    width: fit-content;
 }

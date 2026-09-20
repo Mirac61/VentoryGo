@@ -1,13 +1,15 @@
 import { useInvoices } from '../invoice/useInvoices'
 import { useDashboardStats } from '../invoice/dashboardStats'
+import { Sidebar } from '../components/Sidebar'
 import { Navbar } from '../components/Navbar'
-import { NewInvoiceCard } from '../components/NewInvoiceCard'
+import { NewInvoiceButton } from '../components/NewInvoiceButton'
+import { InvoiceRow } from '../components/InvoiceRow'
+import { StatTile } from '../components/StatTile'
 import styles from './Dashboard.module.css'
 
-// "Dein Unternehmen GmbH" ist ein Platzhalter -- es gibt noch kein Firmenprofil-
-// Feld auf User (siehe AuthContext.ts: nur id, email, createdAt). Sobald #36
-// (Firmenprofil) steht, kommt der Name von dort statt hier fest zu stehen.
-const COMPANY_NAME_PLACEHOLDER = 'Dein Unternehmen GmbH'
+// Kein Vorname auf User (siehe AuthContext.ts: nur id, email, createdAt) --
+// "Max" im Mockup ist ein Platzhalter, bis ein Profilfeld existiert.
+const FIRST_NAME_PLACEHOLDER = 'Max'
 
 export function Dashboard() {
     const { invoices, fetching, fetchResult, refetchInvoices } = useInvoices()
@@ -15,54 +17,53 @@ export function Dashboard() {
 
     return (
         <div className={styles.page}>
-            <Navbar />
+            <Sidebar />
 
-            <div className={styles.content}>
-                <h1 className={styles.companyName}>{COMPANY_NAME_PLACEHOLDER}</h1>
+            <div className={styles.main}>
+                <Navbar title="Dashboard" />
 
-                <NewInvoiceCard onClick={() => { /* Rechnungseditor existiert noch nicht */ }} />
+                <div className={styles.content}>
+                    <div className={styles.column}>
+                        <h1 className={styles.greeting}>
+                            Servus, <span>{FIRST_NAME_PLACEHOLDER}!</span>
+                        </h1>
 
-                <section className={styles.statsSection}>
-                    <div className={styles.statsHeader}>
-                        <h2 className={styles.statsTitle}>Statistiken</h2>
-                        <button type="button" className={styles.refreshButton} onClick={refetchInvoices} disabled={fetching}  >
-                            {fetching ? 'Lädt …' : 'Aktualisieren'}
-                        </button>
+                        <div className={styles.listHeader}>
+                            <h2 className={styles.listTitle}>Rechnungen</h2>
+                            <NewInvoiceButton onClick={() => { /* Rechnungseditor existiert noch nicht */ }} />
+                        </div>
+
+                        <div className={styles.listCard}>
+                            {fetchResult && <p className={styles.errorText}>Fehler: {fetchResult.message}</p>}
+                            {!fetchResult && !fetching && invoices.length === 0 && (
+                                <p className={styles.emptyText}>Noch keine Rechnungen vorhanden.</p>
+                            )}
+                            {!fetchResult && invoices.map((invoice) => (
+                                <InvoiceRow key={invoice.id} invoice={invoice} />
+                            ))}
+                        </div>
                     </div>
 
-                    {fetchResult && <p className={styles.errorText}>Fehler: {fetchResult.message}</p>}
-
-                    {!fetchResult && (
-                        <div className={styles.statsGrid}>
-                            <StatCard label="Überfällig" value={stats.ueberfaellig} accent="danger" loading={fetching} />
-                            <StatCard label="Offene Rechnungen" value={stats.offeneRechnungen} accent="primary" loading={fetching} />
-                            <StatCard label="Bezahlt (diesen Monat)" value={stats.bezahltDiesenMonat} accent="success" loading={fetching} />
-                            <StatCard label="Entwürfe" value={stats.entwuerfe} accent="neutral" loading={fetching} />
+                    <div className={styles.column}>
+                        <div className={styles.statsHeader}>
+                            <h2 className={styles.statsTitle}>Statistiken</h2>
+                            <button type="button" className={styles.refreshButton} onClick={refetchInvoices} disabled={fetching}>
+                                {fetching ? 'Lädt …' : 'Aktualisieren'}
+                            </button>
                         </div>
-                    )}
-                </section>
+
+                        {/* Platzhalter -- das Diagramm folgt in einem spaeteren Schritt. */}
+                        <div className={styles.chartPlaceholder} />
+
+                        <div className={styles.statsGrid}>
+                            <StatTile label="Offene Rechnungen" value={stats.offeneRechnungen} loading={fetching} />
+                            <StatTile label="Bezahlte Rechnungen" value={stats.bezahltDiesenMonat} loading={fetching} />
+                            <StatTile label="Überfällig" value={stats.ueberfaellig} loading={fetching} />
+                            <StatTile label="im Entwurf" value={stats.entwuerfe} loading={fetching} />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     )
-}
-
-interface StatCardProps {
-    label: string
-    value: number
-    accent: 'danger' | 'primary' | 'success' | 'neutral'
-    loading: boolean
-}
-
-function StatCard({ label, value, accent, loading }: StatCardProps) {
-    return (
-        <div className={styles.statCard}>
-            <div className={styles.statValue}>{loading ? '–' : value}</div>
-            <div className={styles.statLabel}>{label}</div>
-            <div className={`${styles.statBar} ${styles[`statBar${capitalize(accent)}`]}`} />
-        </div>
-    )
-}
-
-function capitalize(word: string): string {
-    return word.charAt(0).toUpperCase() + word.slice(1)
 }

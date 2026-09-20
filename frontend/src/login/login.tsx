@@ -36,8 +36,7 @@ export default function Login() {
 
     return (
         <AuthCard
-            title="Willkommen!"
-            subtitle="Melde dich an, um fortzufahren."
+            title="Melde dich an, um fortzufahren"
             error={error}
             footer={
                 <p className={formStyles.footer}>
@@ -63,8 +62,30 @@ export default function Login() {
                     required
                 />
 
+                {/* Kein Passwort-vergessen-Flow im Backend (offener Punkt in
+                    ADR 0001) - Link ist optisch da, aber deaktiviert. */}
+                <span
+                    className={formStyles.forgotPasswordDisabled}
+                    aria-disabled="true"
+                    title="Noch nicht verfügbar"
+                >
+                    Passwort vergessen?
+                </span>
+
                 <button type="submit" className={formStyles.submit} disabled={submitting}>
                     {submitting ? 'Wird angemeldet …' : 'Anmelden'}
+                </button>
+
+                {/* Kein OAuth-Handler im Backend (ADR 0001: "wird hier nicht
+                    vorweggenommen") - Button ist sichtbar, aber deaktiviert. */}
+                <button
+                    type="button"
+                    className={formStyles.oauthButton}
+                    disabled
+                    title="Noch nicht verfügbar"
+                >
+
+                    Mit GitHub anmelden
                 </button>
             </form>
         </AuthCard>
