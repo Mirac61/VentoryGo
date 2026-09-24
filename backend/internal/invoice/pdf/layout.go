@@ -9,10 +9,12 @@ import (
 
 	"github.com/johnfercher/maroto/v2/pkg/components/col"
 	"github.com/johnfercher/maroto/v2/pkg/components/image"
+	"github.com/johnfercher/maroto/v2/pkg/components/page"
 	"github.com/johnfercher/maroto/v2/pkg/components/row"
 	"github.com/johnfercher/maroto/v2/pkg/components/text"
 	"github.com/johnfercher/maroto/v2/pkg/consts/align"
 	"github.com/johnfercher/maroto/v2/pkg/consts/border"
+	"github.com/johnfercher/maroto/v2/pkg/consts/breakline"
 	"github.com/johnfercher/maroto/v2/pkg/consts/extension"
 	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
 	"github.com/johnfercher/maroto/v2/pkg/core"
@@ -188,9 +190,7 @@ func addSubject(m core.Maroto, inv invoice.Invoice, design Design) {
 	}))
 }
 
-func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
-	m.AddRows(spacer(4))
-
+func itemTableHeaderRows(inv invoice.Invoice, design Design) []core.Row {
 	label := func(s string) string {
 		if design.tableHeadUpper {
 			return upper(s)
@@ -204,13 +204,13 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	headRight := head
 	headRight.Align = align.Right
 
-	headerRow := m.AddRow(design.tableRowSpacing+1,
-		text.NewCol(colPos, label("Pos."), head),
+	headerRow := row.New(design.tableRowSpacing+1).Add(
+		text.NewCol(colPos, label("Pos"), head),
 		text.NewCol(colDesc, label("Bezeichnung"), head),
 		text.NewCol(colQty, label("Menge"), headRight),
-		text.NewCol(colPrice, label("Einzelpreis"), headRight),
-		text.NewCol(colVat, label("Steuer"), headRight),
-		text.NewCol(colAmount, label("Betrag"), headRight),
+		text.NewCol(colPrice, label(priceHeading(inv.Currency)), headRight),
+		text.NewCol(colVat, label("USt"), headRight),
+		text.NewCol(colAmount, label("Netto"), headRight),
 	)
 	headerStyle := &props.Cell{BackgroundColor: design.tableHeadBg}
 	if design.tableHeadRule {
@@ -220,14 +220,31 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	}
 	headerRow.WithStyle(headerStyle)
 
+	return []core.Row{spacer(4), headerRow}
+}
+
+func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	body := props.Text{Size: design.sizeBody, Color: design.ink, Top: 2}
 	bodyRight := body
 	bodyRight.Align = align.Right
 
+	descBody := body
+	descBody.BreakLineStrategy = breakline.EmptySpaceStrategy
+
+	// Keep the last two positions together so a continuation page never
+	// starts with a single orphaned row. tableRowSpacing is only a lower bound
+	// for auto-sized rows; taller rows still break correctly on their own.
+	const keepTogether = 2
+	trailingHeight := design.tableRowSpacing * keepTogether
+
 	for i, item := range inv.Items {
+		if i > 0 && i == len(inv.Items)-keepTogether && !m.FitlnCurrentPage(trailingHeight) {
+			m.AddPages(page.New())
+		}
+
 		itemRow := m.AddAutoRow(
 			text.NewCol(colPos, strconv.Itoa(i+1), body),
-			text.NewCol(colDesc, item.Description, body),
+			text.NewCol(colDesc, item.Description, descBody),
 			text.NewCol(colQty, formatQuantityWithUnit(item.Quantity, item.Unit), bodyRight),
 			text.NewCol(colPrice, formatAmount(item.UnitPrice), bodyRight),
 			text.NewCol(colVat, formatVatRate(item.VatRate), bodyRight),
@@ -246,8 +263,16 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	}
 }
 
+func priceHeading(currency string) string {
+	if currency == "" {
+		return "Einzelpreis"
+	}
+	return "Einzelpreis (" + currency + ")"
+}
+
 func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
-	m.AddRows(spacer(3))
+	// Minimum distance between the last item row and the totals/footer block.
+	m.AddRows(spacer(6))
 
 	const (
 		totalsIndent = colPos + colDesc
