@@ -231,9 +231,7 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	descBody := body
 	descBody.BreakLineStrategy = breakline.EmptySpaceStrategy
 
-	// Keep the last two positions together so a continuation page never
-	// starts with a single orphaned row. tableRowSpacing is only a lower bound
-	// for auto-sized rows; taller rows still break correctly on their own.
+	// Avoid a single orphaned position on the continuation page.
 	const keepTogether = 2
 	trailingHeight := design.tableRowSpacing * keepTogether
 
@@ -271,7 +269,6 @@ func priceHeading(currency string) string {
 }
 
 func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
-	// Minimum distance between the last item row and the totals/footer block.
 	m.AddRows(spacer(6))
 
 	const (
