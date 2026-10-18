@@ -4,6 +4,7 @@ import { RequireAuth } from './routes/RequireAuth.tsx'
 import Login from './login/login'
 import Register from './register/register'
 import { Dashboard } from './routes/Dashboard'
+import { InvoiceEditor } from './routes/InvoiceEditor'
 import './App.css'
 
 function App() {
@@ -18,6 +19,14 @@ function App() {
                         element={
                             <RequireAuth>
                                 <Dashboard />
+                            </RequireAuth>
+                        }
+                    />
+                    <Route
+                        path="/invoices/:id"
+                        element={
+                            <RequireAuth>
+                                <InvoiceEditor />
                             </RequireAuth>
                         }
                     />

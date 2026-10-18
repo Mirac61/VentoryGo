@@ -39,7 +39,7 @@ const LANDING_PORT = 4173
 
 // Pfade, die zur React-App gehören. Alles, was hier nicht matcht, geht an
 // die Landing Page. Bei neuen Routen (z.B. /dashboard/settings) ggf. erweitern.
-const FRONTEND_PREFIXES = ['/login', '/register', '/dashboard', '/api', '/@vite', '/@react-refresh', '/@fs', '/src', '/node_modules']
+const FRONTEND_PREFIXES = ['/login', '/register', '/dashboard', '/api', '/invoices', '/@vite', '/@react-refresh', '/@fs', '/src', '/node_modules']
 
 function isFrontendPath(url) {
     return FRONTEND_PREFIXES.some((prefix) => url.startsWith(prefix))

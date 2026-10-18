@@ -513,3 +513,22 @@ func fieldNames(fields map[string]string) []string {
 	}
 	return names
 }
+
+func TestPartialUpdate_SenderPatchKeepsProfileFields(t *testing.T) {
+	repo := NewRepository()
+	s := NewService(repo)
+	draft := draftInvoice()
+	draft.ID = "profile-1"
+	draft.Sender.Logo = []byte("logo")
+	draft.Sender.AccentColor = "#3F6B54"
+	_, err := repo.Create(draft, testOwner)
+	require.NoError(t, err)
+
+	sender := Issuer{Contact: Contact{Name: "Neu GmbH"}}
+	updated, err := s.PartialUpdate("profile-1", InvoicePatch{Sender: &sender}, testOwner)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Neu GmbH", updated.Sender.Name)
+	assert.Equal(t, []byte("logo"), updated.Sender.Logo, "a patch must not wipe the tenant profile")
+	assert.Equal(t, "#3F6B54", updated.Sender.AccentColor)
+}

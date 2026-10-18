@@ -1,0 +1,128 @@
+.page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--color-bg);
+}
+
+.message {
+    padding: 48px 24px;
+    text-align: center;
+    font-family: var(--font-sans);
+    color: var(--color-text);
+}
+
+.subbar {
+    display: flex;
+    align-items: flex-end;
+    gap: 48px;
+    padding: 0 24px;
+    flex-shrink: 0;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-stroke);
+}
+
+.breadcrumb {
+    margin: 0;
+    padding: 14px 0;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    color: var(--color-text-muted);
+}
+
+.breadcrumb strong {
+    font-weight: 400;
+    color: var(--color-text);
+}
+
+.tabs {
+    display: flex;
+    gap: 32px;
+}
+
+/* Plain text; the selected tab is underlined. */
+.tab,
+.tabActive {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 14px 0;
+    margin-bottom: -1px;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--color-text);
+}
+
+.tabActive {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+}
+
+.notice {
+    margin: 0;
+    padding: 10px 24px;
+    background: var(--color-field-bg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+.workspace {
+    display: grid;
+    grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+    padding: 16px;
+}
+
+.panel {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 24px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+}
+
+.placeholder {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+@media (max-width: 960px) {
+    .page {
+        height: auto;
+        min-height: 100vh;
+    }
+
+    .workspace {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .panel {
+        overflow-y: visible;
+    }
+
+    .workspace > :last-child {
+        min-height: 80vh;
+    }
+
+    .subbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    .breadcrumb {
+        padding-bottom: 0;
+    }
+}

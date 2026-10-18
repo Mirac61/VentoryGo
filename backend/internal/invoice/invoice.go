@@ -3,7 +3,11 @@ package invoice
 import "time"
 
 type InvoicePatch struct {
+	Title        *string     `json:"title" binding:"omitempty,max=200"`
 	PaymentDueAt *time.Time  `json:"paymentDueAt" binding:"omitempty,notzero"`
+	ServiceDate  *time.Time  `json:"serviceDate" binding:"omitempty,notzero"`
+	Currency     *string     `json:"currency" binding:"omitempty,len=3,currency"`
+	Sender       *Issuer     `json:"sender"`
 	Recipient    *Contact    `json:"recipient"`
 	Items        *[]LineItem `json:"items" binding:"omitempty,min=1,dive"`
 	Notes        *string     `json:"notes"`
@@ -22,6 +26,7 @@ const (
 type Invoice struct {
 	ID            string              `json:"id"`
 	InvoiceNumber *string             `json:"invoiceNumber"`
+	Title         string              `json:"title" binding:"max=200"`
 	Status        InvoiceStatus       `json:"status"`
 	VatExempt     bool                `json:"vatExempt"`
 	CreatedAt     time.Time           `json:"createdAt"`
@@ -29,8 +34,8 @@ type Invoice struct {
 	ServiceDate   time.Time           `json:"serviceDate"`
 	Currency      string              `json:"currency" binding:"omitempty,len=3,currency"`
 	PaymentDueAt  time.Time           `json:"paymentDueAt" binding:"required"`
-	Sender        Issuer              `json:"sender" binding:"required"`
-	Recipient     Contact             `json:"recipient" binding:"required"`
+	Sender        Issuer              `json:"sender"`
+	Recipient     Contact             `json:"recipient"`
 	Items         []LineItem          `json:"items" binding:"required,min=1,dive"`
 	VatBreakdown  []VATBreakdownEntry `json:"vatBreakdown"`
 	NetTotal      Money               `json:"netTotal"`
@@ -41,12 +46,13 @@ type Invoice struct {
 	OwnerID       string              `json:"-"`
 }
 
+
 type Contact struct {
-	Name    string `json:"name" binding:"required"`
-	Street  string `json:"street" binding:"required"`
-	Zip     string `json:"zip" binding:"required"`
-	City    string `json:"city" binding:"required"`
-	Country string `json:"country" binding:"required"`
+	Name    string `json:"name"`
+	Street  string `json:"street"`
+	Zip     string `json:"zip"`
+	City    string `json:"city"`
+	Country string `json:"country"`
 	Email   string `json:"email" binding:"omitempty,email"`
 	Phone   string `json:"phone"`
 	TaxID   string `json:"taxId"`
@@ -59,7 +65,6 @@ type Issuer struct {
 	IBAN      string `json:"iban" binding:"omitempty,iban"`
 	BIC       string `json:"bic"`
 	BankName  string `json:"bankName"`
-	// Logo and AccentColor comes from the profile of the tennant, so json:"-"
 	Logo        []byte `json:"-"`
 	AccentColor string `json:"-"`
 }

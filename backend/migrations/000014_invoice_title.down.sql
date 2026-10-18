@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE invoices
+    DROP COLUMN title;
+
+COMMIT;

@@ -1,0 +1,43 @@
+.card {
+    margin-bottom: 28px;
+}
+
+.cardTitle {
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-stroke);
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-text-muted);
+}
+
+.cardHelp {
+    margin: 10px 0 16px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.rowZipCity {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 12px;
+}
+
+.logoButton {
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid var(--color-stroke);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--color-text);
+}
+
+.logoButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

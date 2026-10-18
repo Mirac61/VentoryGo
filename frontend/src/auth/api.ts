@@ -31,7 +31,9 @@ interface ApiOptions extends Omit<RequestInit, 'body'> {
     skipUnauthorizedRedirect?: boolean
 }
 
-export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+// Shared by api() and apiBlob(): sends the request and throws ApiError for
+// every non-2xx answer, so both callers only deal with the success path.
+async function request(path: string, options: ApiOptions): Promise<Response> {
     const { body, skipUnauthorizedRedirect, headers, method, ...rest } = options
 
     const isWrite = method !== undefined && method.toUpperCase() !== 'GET'
@@ -68,11 +70,22 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
         throw new ApiError(response.status, message)
     }
 
+    return response
+}
+
+export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+    const response = await request(path, options)
+
     if (response.status === 204) {
         return undefined as T
     }
 
     return (await response.json()) as T
+}
+
+export async function apiBlob(path: string, options: ApiOptions = {}): Promise<Blob> {
+    const response = await request(path, options)
+    return response.blob()
 }
 
 function extractFlatMessage(payload: unknown): string | undefined {
@@ -92,4 +105,3 @@ function extractFieldErrors(payload: unknown): Record<string, string> | undefine
     }
     return undefined
 }
-

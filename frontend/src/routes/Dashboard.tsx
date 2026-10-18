@@ -6,15 +6,35 @@ import { NewInvoiceButton } from '../components/NewInvoiceButton'
 import { InvoiceRow } from '../components/InvoiceRow'
 import { StatTile } from '../components/StatTile'
 import styles from './Dashboard.module.css'
+import { useState } from 'react'
+import { useNavigate } from 'react-router'
+import { createDraft } from '../invoice/createDraft'
 
 // Kein Vorname auf User (siehe AuthContext.ts: nur id, email, createdAt) --
 // "Max" im Mockup ist ein Platzhalter, bis ein Profilfeld existiert.
 const FIRST_NAME_PLACEHOLDER = 'Max'
 
+
 export function Dashboard() {
     const { invoices, fetching, fetchResult, refetchInvoices } = useInvoices()
-    const stats = useDashboardStats(invoices)
+  const stats = useDashboardStats(invoices)
 
+  const navigate = useNavigate()
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  
+  async function handleNewInvoice() {
+      if (creating) return
+      setCreating(true)
+      setCreateError(null)
+      try {
+          const draft = await createDraft()
+          navigate(`/invoices/${draft.id}`)
+      } catch {
+          setCreateError('Rechnung konnte nicht angelegt werden. Bitte versuche es erneut.')
+          setCreating(false)
+      }
+  }
     return (
         <div className={styles.page}>
             <Sidebar />
@@ -30,8 +50,9 @@ export function Dashboard() {
 
                         <div className={styles.listHeader}>
                             <h2 className={styles.listTitle}>Rechnungen</h2>
-                            <NewInvoiceButton onClick={() => { /* Rechnungseditor existiert noch nicht */ }} />
+                            <NewInvoiceButton onClick={handleNewInvoice} disabled={creating} />
                         </div>
+                        {createError && <p className={styles.errorText}>{createError}</p>}
 
                         <div className={styles.listCard}>
                             {fetchResult && <p className={styles.errorText}>Fehler: {fetchResult.message}</p>}

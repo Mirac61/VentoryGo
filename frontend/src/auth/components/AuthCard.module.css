@@ -3,7 +3,7 @@
        .headerLine (Unterkante) rechnen darueber, damit Logo-Padding und
        Linienposition nicht auseinanderlaufen koennen. */
     --header-padding-y: 28px;
-    --header-line-height: 48px;
+    --header-line-height: 28px;
 
     position: relative;
     min-height: 100vh;
