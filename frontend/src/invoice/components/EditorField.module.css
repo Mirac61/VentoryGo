@@ -44,7 +44,11 @@
     border-color: var(--color-error);
 }
 
-/* Read-only fields get a darker background so they never look editable. */
+.textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
 .readOnly {
     background: var(--color-input-bg);
 }

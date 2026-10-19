@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '../auth/api'
 import type { Invoice, Issuer, LineItem } from './Invoice'
 
-// Mirrors backend InvoicePatch. Only these fields can be patched today.
 export interface InvoicePatchBody {
     title?: string
     paymentDueAt?: string
@@ -15,13 +14,12 @@ export interface InvoicePatchBody {
     items?: PatchLineItem[]
 }
 
-export type PatchLineItem = Pick<LineItem, 'description' | 'quantity' | 'unitPrice' | 'unit' | 'vatRate'>
+export type PatchLineItem = Pick<LineItem, 'id' | 'description' | 'quantity' | 'unitPrice' | 'unit' | 'vatRate'>
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error' | 'frozen'
 
 interface Options {
     delayMs?: number
-    // Called once when the server answers 409: the invoice was issued meanwhile.
     onFrozen: () => void
 }
 
@@ -29,7 +27,6 @@ export function useInvoiceAutosave(invoiceId: string, { delayMs = 500, onFrozen 
     const [state, setState] = useState<SaveState>('idle')
     const [error, setError] = useState<Error | null>(null)
     const [lastSaved, setLastSaved] = useState<Invoice | null>(null)
-    // Counts successful PATCHes. The preview refetches whenever it changes.
     const [revision, setRevision] = useState(0)
 
     const pending = useRef<InvoicePatchBody>({})
@@ -42,10 +39,6 @@ export function useInvoiceAutosave(invoiceId: string, { delayMs = 500, onFrozen 
         onFrozenRef.current = onFrozen
     }, [onFrozen])
 
-    useEffect(() => () => window.clearTimeout(timer.current), [])
-
-    // PATCHes run strictly one after another, so responses cannot arrive out of
-    // order. Edits made while a request is in flight are merged and sent next.
     const drain = useCallback(async (): Promise<boolean> => {
         while (Object.keys(pending.current).length > 0) {
             const body = pending.current
@@ -63,7 +56,6 @@ export function useInvoiceAutosave(invoiceId: string, { delayMs = 500, onFrozen 
                     onFrozenRef.current()
                     return false
                 }
-                // Keep the failed edit; a newer edit of the same field wins.
                 pending.current = { ...body, ...pending.current }
                 setError(caught instanceof Error ? caught : new Error(String(caught)))
                 setState('error')
@@ -83,6 +75,14 @@ export function useInvoiceAutosave(invoiceId: string, { delayMs = 500, onFrozen 
         })
         return running.current
     }, [drain])
+
+    
+    useEffect(
+        () => () => {
+            if (Object.keys(pending.current).length > 0) void flushNow()
+        },
+        [flushNow],
+    )
 
     const save = useCallback(
         (patch: InvoicePatchBody) => {

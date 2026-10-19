@@ -13,7 +13,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--color-stroke);
+    border-bottom: 0.7px solid var(--color-stroke);
 }
 
 .zoom {

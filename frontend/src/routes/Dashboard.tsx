@@ -10,8 +10,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { createDraft } from '../invoice/createDraft'
 
-// Kein Vorname auf User (siehe AuthContext.ts: nur id, email, createdAt) --
-// "Max" im Mockup ist ein Platzhalter, bis ein Profilfeld existiert.
+import { api, ApiError } from '../auth/api'
+
+
 const FIRST_NAME_PLACEHOLDER = 'Max'
 
 
@@ -35,6 +36,28 @@ export function Dashboard() {
           setCreating(false)
       }
   }
+
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  
+  async function handleDelete(id: string) {
+      setDeleteError(null)
+      try {
+          await api<void>(`/api/invoices/${id}`, { method: 'DELETE' })
+      } catch (error) {
+          setDeleteError(
+              error instanceof ApiError && error.status === 409
+                  ? 'Nur Entwürfe können gelöscht werden.'
+                  : 'Rechnung konnte nicht gelöscht werden.',
+          )
+      } finally {
+          refetchInvoices()
+      }
+  }
+
+  // The backend returns the oldest first, the newest invoice belongs on top.
+  const sortedInvoices = [...invoices].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
+  
     return (
         <div className={styles.page}>
             <Sidebar />
@@ -52,15 +75,16 @@ export function Dashboard() {
                             <h2 className={styles.listTitle}>Rechnungen</h2>
                             <NewInvoiceButton onClick={handleNewInvoice} disabled={creating} />
                         </div>
-                        {createError && <p className={styles.errorText}>{createError}</p>}
+                      {createError && <p className={styles.errorText}>{createError}</p>}
+                      {deleteError && <p className={styles.errorText}>{deleteError}</p>}  
 
                         <div className={styles.listCard}>
                             {fetchResult && <p className={styles.errorText}>Fehler: {fetchResult.message}</p>}
                             {!fetchResult && !fetching && invoices.length === 0 && (
                                 <p className={styles.emptyText}>Noch keine Rechnungen vorhanden.</p>
                             )}
-                            {!fetchResult && invoices.map((invoice) => (
-                                <InvoiceRow key={invoice.id} invoice={invoice} />
+                            {!fetchResult && sortedInvoices.map((invoice) => (
+                                <InvoiceRow key={invoice.id} invoice={invoice} onDelete={handleDelete} />
                             ))}
                         </div>
                     </div>

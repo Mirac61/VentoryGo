@@ -4,10 +4,10 @@
     width: 280px;
     flex-shrink: 0;
     min-height: 100vh;
-    border-right: 1px solid var(--color-stroke);
     padding: 20px 16px;
     box-sizing: border-box;
     transition: width 0.15s ease;
+    background-color: var(--color-field-bg);
 }
 
 .sidebarCollapsed {

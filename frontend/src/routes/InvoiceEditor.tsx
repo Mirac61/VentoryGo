@@ -4,13 +4,16 @@ import { useInvoice } from '../invoice/useInvoice'
 import { useInvoiceAutosave } from '../invoice/useInvoiceAutosave'
 import { useInvoicePreview } from '../invoice/useInvoicePreview'
 import { isPlausibleIban, isValidEmail, normalizeIban } from '../invoice/validation'
+import { dateOnly, detailsFromInvoice, detailsPatch, type DetailsForm } from '../invoice/detailsForm'
 import type { Contact, Invoice, Issuer } from '../invoice/Invoice'
 import { CompanyCustomerTab } from '../invoice/components/CompanyCustomerTab'
+import { DetailsTab } from '../invoice/components/DetailsTab'
 import { EditorTopbar } from '../invoice/components/EditorTopbar'
 import { PreviewPane } from '../invoice/components/PreviewPane'
 import styles from './InvoiceEditor.module.css'
 
 type TabId = 'company' | 'details'
+
 
 function persistableEmail(email: string): string {
     const trimmed = email.trim()
@@ -50,8 +53,10 @@ function InvoiceEditorLoader({ id }: { id: string }) {
 function EditorBody({ initial }: { initial: Invoice }) {
     const [sender, setSender] = useState<Issuer>(initial.sender)
     const [recipient, setRecipient] = useState<Contact>(initial.recipient)
+    const [details, setDetails] = useState<DetailsForm>(() => detailsFromInvoice(initial))
     const [tab, setTab] = useState<TabId>('company')
-
+    const vatExempt = initial.vatExempt
+ 
     const [readOnly, setReadOnly] = useState(initial.status !== 'draft')
 
     const autosave = useInvoiceAutosave(initial.id, { onFrozen: () => setReadOnly(true) })
@@ -68,6 +73,17 @@ function EditorBody({ initial }: { initial: Invoice }) {
         setRecipient(next)
         autosave.save({ recipient: persistableRecipient(next) })
     }
+
+    function changeDetails(changed: Partial<DetailsForm>) {
+        const next: DetailsForm = { ...details, ...changed }
+        setDetails(next)
+
+        const patch = detailsPatch(changed, next, vatExempt)
+        if (Object.keys(patch).length > 0) autosave.save(patch)
+    }
+
+    const savedItems = autosave.lastSaved?.items ?? initial.items
+    const savedTotals = new Map<string, number>(savedItems.map((item): [string, number] => [item.id, item.total]))
 
     function openPreview() {
         if (!pdfBytes) return
@@ -129,7 +145,15 @@ function EditorBody({ initial }: { initial: Invoice }) {
                             onRecipientChange={changeRecipient}
                         />
                     ) : (
-                        <p className={styles.placeholder}>Die Rechnungsdetails folgen als Nächstes.</p>
+                        <DetailsTab
+                            details={details}
+                            invoiceNumber={initial.invoiceNumber}
+                            issuedDate={dateOnly(initial.issuedAt)}
+                            vatExempt={vatExempt}
+                            readOnly={readOnly}
+                            savedTotals={savedTotals}
+                            onChange={changeDetails}
+                        />
                     )}
                 </section>
 

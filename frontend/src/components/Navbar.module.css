@@ -3,7 +3,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 16px 32px;
-    border-bottom: 1px solid var(--color-stroke);
+    background-color: var(--color-bg);
 }
 
 .title {
