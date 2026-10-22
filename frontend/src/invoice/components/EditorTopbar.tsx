@@ -1,5 +1,4 @@
 import { Link } from 'react-router'
-import { ArrowClockwiseIcon, ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import type { SaveState } from '../useInvoiceAutosave'
 import styles from './EditorTopbar.module.css'
 
@@ -36,14 +35,6 @@ export function EditorTopbar({ saveState, readOnly, canPreview, onSave, onPrevie
             </button>
             <button type="button" className={styles.action} onClick={onPreview} disabled={!canPreview}>
                 Vorschau
-            </button>
-
-            {/* Undo/redo is not built yet: visible but disabled, like the other stubs. */}
-            <button type="button" className={styles.iconButton} disabled aria-label="Rückgängig" title="Noch nicht verfügbar">
-                <ArrowCounterClockwiseIcon size={18} />
-            </button>
-            <button type="button" className={styles.iconButton} disabled aria-label="Wiederholen" title="Noch nicht verfügbar">
-                <ArrowClockwiseIcon size={18} />
             </button>
 
             <span className={styles.saveState} role="status">
