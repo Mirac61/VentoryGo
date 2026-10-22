@@ -56,7 +56,9 @@ export function useInvoiceAutosave(invoiceId: string, { delayMs = 500, onFrozen 
                     onFrozenRef.current()
                     return false
                 }
-                pending.current = { ...body, ...pending.current }
+              if (!(caught instanceof ApiError && caught.status == 422)) {
+                  pending.current = { ...body, ...pending.current }
+                }
                 setError(caught instanceof Error ? caught : new Error(String(caught)))
                 setState('error')
                 return false
