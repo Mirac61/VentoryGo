@@ -339,3 +339,19 @@ func TestPostgresIssue_NewYearInConfiguredZoneWhileServerIsStillInOldYear(t *tes
 	assert.Equal(t, 0, readCounter(t, pool, owner, oldYear), "the old year must not be touched")
 	assert.Equal(t, 1, readCounter(t, pool, owner, newYear))
 }
+
+func TestPostgresPartialUpdate_TitleRoundtrip(t *testing.T) {
+	pool := testPool(t)
+	repo := NewPostgresRepository(pool)
+	s := NewService(repo)
+	owner := seedUser(t, pool)
+	created := createPostgresDraft(t, s, repo, owner)
+
+	title := "Projekt Hafen"
+	_, err := s.PartialUpdate(created.ID, InvoicePatch{Title: &title}, owner)
+	require.NoError(t, err)
+
+	fetched, err := repo.GetByID(created.ID, owner)
+	require.NoError(t, err)
+	assert.Equal(t, title, fetched.Title)
+}

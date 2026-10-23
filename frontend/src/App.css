@@ -20,6 +20,8 @@
 
     --color-stroke: rgba(0, 0, 0, 0.22);
 
+    --gradient-topbar: linear-gradient(90deg, #0B1849 0%, #14306F 55%, #0A369D 100%);
+
     /* Invoice semantic states */
     --invoice-draft: #D97706;
     --invoice-saved: #4B5563;
@@ -39,3 +41,5 @@
 
     --gradient1: linear-gradient(90deg, #FDF5EE, #F6F8FF);
 }
+
+

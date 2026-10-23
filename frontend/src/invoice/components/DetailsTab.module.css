@@ -1,0 +1,118 @@
+.card {
+    margin-bottom: 28px;
+}
+
+.cardTitle {
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--color-stroke);
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--color-text-muted);
+}
+
+.cardHelp {
+    margin: 10px 0 16px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.info {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--color-field-bg);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--color-text-muted);
+}
+
+.item {
+    margin-bottom: 14px;
+    padding: 14px 14px 2px;
+    border: 1px solid var(--color-stroke);
+    border-radius: var(--radius-md);
+}
+
+.itemHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.itemTitle {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.removeButton {
+    background: none;
+    border: none;
+    padding: 4px 0;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.removeButton:hover:not(:disabled) {
+    color: var(--color-error);
+    text-decoration: underline;
+}
+
+.removeButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.total {
+    display: flex;
+    justify-content: space-between;
+    margin: 4px 0 14px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--color-text);
+}
+
+.rowNote {
+    margin: -4px 0 14px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-style: italic;
+    color: var(--color-text-muted);
+}
+
+.addButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.addButton:hover:not(:disabled) {
+    background: #142263;
+}
+
+.addButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

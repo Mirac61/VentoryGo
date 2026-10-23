@@ -38,7 +38,9 @@ export interface VATBreakdownEntry{
 export interface Invoice {
     id: string
     invoiceNumber: string | null
+    title: string
     status: 'draft' | 'issued' | 'paid' | 'cancelled'
+    vatExempt: boolean
     createdAt: string
     issuedAt: string
     serviceDate: string
@@ -51,5 +53,6 @@ export interface Invoice {
     netTotal: number
     vatAmount: number
     grossTotal: number
+    legalNotices: string[]
     notes: string
 }

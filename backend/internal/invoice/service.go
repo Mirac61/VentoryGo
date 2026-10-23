@@ -3,6 +3,7 @@ package invoice
 import (
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
@@ -117,8 +118,26 @@ func validateVatExempt(invoice Invoice) error {
 	return nil
 }
 
-func validateForIssue(invoice Invoice) error {
+func missingContactFields(prefix string, contact Contact) []string {
+	required := []struct{ name, value string }{
+		{"Name", contact.Name},
+		{"Street", contact.Street},
+		{"Zip", contact.Zip},
+		{"City", contact.City},
+		{"Country", contact.Country},
+	}
 	var missing []string
+	for _, field := range required {
+		if strings.TrimSpace(field.value) == "" {
+			missing = append(missing, prefix+field.name)
+		}
+	}
+	return missing
+}
+
+func validateForIssue(invoice Invoice) error {
+	missing := missingContactFields("sender", invoice.Sender.Contact)
+	missing = append(missing, missingContactFields("recipient", invoice.Recipient)...)
 
 	if invoice.ServiceDate.IsZero() {
 		missing = append(missing, "serviceDate")
@@ -303,6 +322,23 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch, ownerID string) (
 		}
 		if patch.VatExempt != nil {
 			invoice.VatExempt = *patch.VatExempt
+		}
+
+		if patch.Title != nil {
+			invoice.Title = *patch.Title
+		}
+		if patch.ServiceDate != nil {
+			invoice.ServiceDate = *patch.ServiceDate
+		}
+		if patch.Currency != nil && *patch.Currency != "" {
+			invoice.Currency = *patch.Currency
+		}
+		if patch.Sender != nil {
+			sender := *patch.Sender
+
+			sender.Logo = invoice.Sender.Logo
+			sender.AccentColor = invoice.Sender.AccentColor
+			invoice.Sender = sender
 		}
 
 		if err := validateInvoiceData(invoice.Items); err != nil {

@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE invoices
+    ADD COLUMN title TEXT NOT NULL DEFAULT '';
+
+COMMIT;

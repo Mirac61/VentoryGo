@@ -6,9 +6,8 @@ import { api, setUnauthorizedHandler } from './api'
 // fehlgeschlagen. Kein Registrierungsfehler — der Aufrufer sollte hier auf
 // "bitte manuell anmelden" statt auf die üblichen Registrierungsfehler mappen.
 export class PostRegisterLoginError extends Error {
-    cause: unknown
     constructor(cause: unknown) {
-        super('Konto wurde angelegt, automatische Anmeldung ist fehlgeschlagen')
+        super('Konto wurde angelegt, automatische Anmeldung ist fehlgeschlagen', {cause})
         this.name = 'PostRegisterLoginError'
         this.cause = cause
     }
