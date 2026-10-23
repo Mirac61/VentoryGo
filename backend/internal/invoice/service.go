@@ -3,8 +3,8 @@ package invoice
 import (
 	"math"
 	"sort"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/Mirac61/VentoryGo/backend/internal/httperror"
 	"github.com/google/uuid"
@@ -325,23 +325,22 @@ func (s *Service) PartialUpdate(id string, patch InvoicePatch, ownerID string) (
 		}
 
 		if patch.Title != nil {
-					invoice.Title = *patch.Title
-				}
-				if patch.ServiceDate != nil {
-					invoice.ServiceDate = *patch.ServiceDate
-				}
-				if patch.Currency != nil && *patch.Currency != "" {
-					invoice.Currency = *patch.Currency
-				}
-				if patch.Sender != nil {
-					sender := *patch.Sender
-				
-					sender.Logo = invoice.Sender.Logo
-					sender.AccentColor = invoice.Sender.AccentColor
-					invoice.Sender = sender
-				}
+			invoice.Title = *patch.Title
+		}
+		if patch.ServiceDate != nil {
+			invoice.ServiceDate = *patch.ServiceDate
+		}
+		if patch.Currency != nil && *patch.Currency != "" {
+			invoice.Currency = *patch.Currency
+		}
+		if patch.Sender != nil {
+			sender := *patch.Sender
 
-				
+			sender.Logo = invoice.Sender.Logo
+			sender.AccentColor = invoice.Sender.AccentColor
+			invoice.Sender = sender
+		}
+
 		if err := validateInvoiceData(invoice.Items); err != nil {
 			return Invoice{}, err
 		}

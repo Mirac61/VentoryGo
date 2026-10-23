@@ -45,7 +45,7 @@ func scanInvoice(row rowScanner) (Invoice, error) {
 		&invoice.Sender.Name, &invoice.Sender.Street, &invoice.Sender.Zip, &invoice.Sender.City, &invoice.Sender.Country, &invoice.Sender.Email, &invoice.Sender.Phone, &invoice.Sender.TaxID, &invoice.Sender.VatID, &invoice.Sender.TaxNumber, &invoice.Sender.IBAN, &invoice.Sender.BIC, &invoice.Sender.BankName,
 		&invoice.Recipient.Name, &invoice.Recipient.Street, &invoice.Recipient.Zip, &invoice.Recipient.City, &invoice.Recipient.Country, &invoice.Recipient.Email, &invoice.Recipient.Phone, &invoice.Recipient.TaxID,
 		&invoice.NetTotal, &invoice.VATAmount, &invoice.GrossTotal, &invoice.Notes, &invoice.OwnerID, &invoice.VatExempt, &invoice.Title,
-)
+	)
 	if number != "" {
 		invoice.InvoiceNumber = &number
 	}

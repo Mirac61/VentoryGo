@@ -46,7 +46,6 @@ type Invoice struct {
 	OwnerID       string              `json:"-"`
 }
 
-
 type Contact struct {
 	Name    string `json:"name"`
 	Street  string `json:"street"`
@@ -60,11 +59,11 @@ type Contact struct {
 
 type Issuer struct {
 	Contact
-	VatID     string `json:"vatId"`
-	TaxNumber string `json:"taxNumber"`
-	IBAN      string `json:"iban" binding:"omitempty,iban"`
-	BIC       string `json:"bic"`
-	BankName  string `json:"bankName"`
+	VatID       string `json:"vatId"`
+	TaxNumber   string `json:"taxNumber"`
+	IBAN        string `json:"iban" binding:"omitempty,iban"`
+	BIC         string `json:"bic"`
+	BankName    string `json:"bankName"`
 	Logo        []byte `json:"-"`
 	AccentColor string `json:"-"`
 }

@@ -78,7 +78,7 @@ export function useInvoiceAutosave(invoiceId: string, { delayMs = 500, onFrozen 
         return running.current
     }, [drain])
 
-    
+
     useEffect(
         () => () => {
             if (Object.keys(pending.current).length > 0) void flushNow()
