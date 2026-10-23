@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
 import { useInvoice } from '../invoice/useInvoice'
-import { useInvoiceAutosave } from '../invoice/useInvoiceAutosave'
+import { PATCH_FIELD_LABEL, useInvoiceAutosave } from '../invoice/useInvoiceAutosave'
 import { useInvoicePreview } from '../invoice/useInvoicePreview'
 import { isPlausibleIban, isValidEmail, normalizeIban } from '../invoice/validation'
-import { dateOnly, detailsFromInvoice, detailsPatch, type DetailsForm } from '../invoice/detailsForm'
+import { dateOnly, detailsFromInvoice, detailsPatch, isRowSaveable, type DetailsForm } from '../invoice/detailsForm'
 import type { Contact, Invoice, Issuer } from '../invoice/Invoice'
 import { CompanyCustomerTab } from '../invoice/components/CompanyCustomerTab'
 import { DetailsTab } from '../invoice/components/DetailsTab'
@@ -14,19 +14,24 @@ import styles from './InvoiceEditor.module.css'
 
 type TabId = 'company' | 'details'
 
+// The backend validates emails and IBANs strictly and refuses a whole PATCH over
+// one invalid value. While the user types, a half-finished value is therefore
+// not sent: the last valid value stays in the patch instead, so the saved state
+// is always the last valid one, even if the page is left mid-edit.
+interface LastValid {
+    senderEmail: string
+    recipientEmail: string
+    iban: string
+}
 
-function persistableEmail(email: string): string {
+function validEmailOr(email: string, fallback: string): string {
     const trimmed = email.trim()
-    return trimmed === '' || isValidEmail(trimmed) ? trimmed : ''
+    return trimmed === '' || isValidEmail(trimmed) ? trimmed : fallback
 }
 
-function persistableSender(sender: Issuer): Issuer {
-    const iban = normalizeIban(sender.iban)
-    return { ...sender, email: persistableEmail(sender.email), iban: isPlausibleIban(iban) ? iban : '' }
-}
-
-function persistableRecipient(recipient: Contact): Contact {
-    return { ...recipient, email: persistableEmail(recipient.email) }
+function validIbanOr(iban: string, fallback: string): string {
+    const normalized = normalizeIban(iban)
+    return normalized === '' || isPlausibleIban(normalized) ? normalized : fallback
 }
 
 export function InvoiceEditor() {
@@ -56,8 +61,15 @@ function EditorBody({ initial }: { initial: Invoice }) {
     const [details, setDetails] = useState<DetailsForm>(() => detailsFromInvoice(initial))
     const [tab, setTab] = useState<TabId>('company')
     const vatExempt = initial.vatExempt
- 
+    // Anything but a draft is frozen, whether it was loaded that way or a 409
+    // from an autosave told us it got issued meanwhile.
     const [readOnly, setReadOnly] = useState(initial.status !== 'draft')
+
+    const lastValid = useRef<LastValid>({
+        senderEmail: initial.sender.email,
+        recipientEmail: initial.recipient.email,
+        iban: initial.sender.iban,
+    })
 
     const autosave = useInvoiceAutosave(initial.id, { onFrozen: () => setReadOnly(true) })
     const { pdfBytes, error: previewError } = useInvoicePreview(initial.id, autosave.revision)
@@ -65,13 +77,20 @@ function EditorBody({ initial }: { initial: Invoice }) {
     function changeSender(key: keyof Issuer, value: string) {
         const next: Issuer = { ...sender, [key]: value }
         setSender(next)
-        autosave.save({ sender: persistableSender(next) })
+
+        lastValid.current.senderEmail = validEmailOr(next.email, lastValid.current.senderEmail)
+        lastValid.current.iban = validIbanOr(next.iban, lastValid.current.iban)
+        autosave.save({
+            sender: { ...next, email: lastValid.current.senderEmail, iban: lastValid.current.iban },
+        })
     }
 
     function changeRecipient(key: keyof Contact, value: string) {
         const next: Contact = { ...recipient, [key]: value }
         setRecipient(next)
-        autosave.save({ recipient: persistableRecipient(next) })
+
+        lastValid.current.recipientEmail = validEmailOr(next.email, lastValid.current.recipientEmail)
+        autosave.save({ recipient: { ...next, email: lastValid.current.recipientEmail } })
     }
 
     function changeDetails(changed: Partial<DetailsForm>) {
@@ -82,8 +101,12 @@ function EditorBody({ initial }: { initial: Invoice }) {
         if (Object.keys(patch).length > 0) autosave.save(patch)
     }
 
+    // Line totals come from the backend's last answer, not from a calculation here.
     const savedItems = autosave.lastSaved?.items ?? initial.items
     const savedTotals = new Map<string, number>(savedItems.map((item): [string, number] => [item.id, item.total]))
+
+    const incompleteRowCount = details.rows.filter((row) => !isRowSaveable(row, vatExempt)).length
+    const rejectedLabels = autosave.rejected.map((field) => PATCH_FIELD_LABEL[field])
 
     function openPreview() {
         if (!pdfBytes) return
@@ -96,6 +119,8 @@ function EditorBody({ initial }: { initial: Invoice }) {
         <div className={styles.page}>
             <EditorTopbar
                 saveState={autosave.state}
+                rejectedLabels={rejectedLabels}
+                incompleteRowCount={incompleteRowCount}
                 readOnly={readOnly}
                 canPreview={pdfBytes !== null}
                 onSave={() => void autosave.flushNow()}

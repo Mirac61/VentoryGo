@@ -23,6 +23,7 @@ interface DetailsTabProps {
     issuedDate: string
     vatExempt: boolean
     readOnly: boolean
+    // Line totals as the backend calculated them, by item id (in cents).
     savedTotals: Map<string, number>
     onChange: (changed: Partial<DetailsForm>) => void
 }
@@ -115,7 +116,9 @@ export function DetailsTab({
                 {rows.map((row, index) => {
                     const errors = rowErrors(row)
                     const isFixed = row.mode === 'fixed'
-                    const total = savedTotals.get(row.id)
+                    // An incomplete row is not saved (the backend may hold a placeholder
+                    // under its id), so it has no total of its own to show.
+                    const total = isRowSaveable(row, vatExempt) ? savedTotals.get(row.id) : undefined
                     const rates = VAT_RATES.includes(row.vatRate) ? VAT_RATES : [...VAT_RATES, row.vatRate]
 
                     return (

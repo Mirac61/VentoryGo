@@ -1,10 +1,12 @@
 import type { Invoice, LineItem } from './Invoice'
 import type { InvoicePatchBody, PatchLineItem } from './useInvoiceAutosave'
 
-
+// "fixed" is a pure UI mode: the backend stores no mode, a fixed amount is just
+// quantity 1 without a unit. After a reload every row shows up as "quantity".
 export type ItemMode = 'quantity' | 'fixed'
 
-
+// Inputs are strings so the user can type freely ("1,", "49,9"). They are only
+// converted when a PATCH payload is built.
 export interface ItemRow {
     id: string
     description: string
@@ -24,6 +26,7 @@ export interface DetailsForm {
     rows: ItemRow[]
 }
 
+// Basis points: 1900 = 19 %.
 export const VAT_RATES = [0, 700, 1900]
 const DEFAULT_VAT_RATE = 1900
 
@@ -37,7 +40,9 @@ export const CURRENCIES = [
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const MIN_PLAUSIBLE_YEAR = 2000
 
+// ---- parsing and formatting (integer math only, no floats for money) ----
 
+// "49,90" or "49.9" -> 4990. Null when empty or not a plain amount.
 export function parseCents(input: string): number | null {
     const match = /^(\d{1,9})(?:[.,](\d{1,2}))?$/.exec(input.trim())
     if (!match) return null
@@ -73,6 +78,7 @@ export function formatVatRate(basisPoints: number): string {
     return `${String(basisPoints / 100).replace('.', ',')} %`
 }
 
+// The backend sends zero dates as "0001-01-01T...".
 export function dateOnly(iso: string): string {
     return iso.startsWith('0001') ? '' : iso.slice(0, 10)
 }
@@ -87,6 +93,7 @@ function isPlausibleDate(value: string): boolean {
     return DATE_PATTERN.test(value) && Number(value.slice(0, 4)) >= MIN_PLAUSIBLE_YEAR
 }
 
+// ---- rows ----
 
 function defaultVatRate(vatExempt: boolean): number {
     return vatExempt ? 0 : DEFAULT_VAT_RATE
@@ -169,6 +176,10 @@ export function isRowSaveable(row: ItemRow, vatExempt: boolean): boolean {
     return toPatchItem(row, vatExempt) !== null
 }
 
+// PATCH replaces the item list wholesale and the backend insists on at least one
+// item. Without any saveable row the placeholder keeps the draft valid. It takes
+// over the id of the first existing row, so the row keeps its identity (and its
+// total) across saves instead of getting a fresh id with every PATCH.
 export function saveableItems(rows: ItemRow[], vatExempt: boolean): PatchLineItem[] {
     const items = rows.flatMap((row) => {
         const item = toPatchItem(row, vatExempt)
@@ -178,7 +189,7 @@ export function saveableItems(rows: ItemRow[], vatExempt: boolean): PatchLineIte
 
     return [
         {
-            id: crypto.randomUUID(),
+            id: rows[0]?.id ?? crypto.randomUUID(),
             description: 'Leistung',
             quantity: 1,
             unitPrice: 0,
@@ -188,7 +199,8 @@ export function saveableItems(rows: ItemRow[], vatExempt: boolean): PatchLineIte
     ]
 }
 
-
+// Builds a PATCH body from the fields that just changed. Dates that are cleared
+// or half typed are skipped: the backend rejects a zero date.
 export function detailsPatch(changed: Partial<DetailsForm>, next: DetailsForm, vatExempt: boolean): InvoicePatchBody {
     const patch: InvoicePatchBody = {}
     if (changed.title !== undefined) patch.title = changed.title.trim()
