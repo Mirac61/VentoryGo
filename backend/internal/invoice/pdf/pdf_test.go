@@ -4,11 +4,14 @@ import (
 	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
 
 	"bytes"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/johnfercher/maroto/v2/pkg/props"
+	"github.com/phpdave11/gofpdf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -224,4 +227,86 @@ func TestGenerate_CreationDate(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, string(doc), "D:20260116103045")
 	})
+}
+
+var pageObject = regexp.MustCompile(`/Type /Page\b[^s]`)
+
+func pageCount(doc []byte) int {
+	return len(pageObject.FindAll(doc, -1))
+}
+
+func invoiceWithItems(n int) invoice.Invoice {
+	inv := invoice.Invoice{Currency: "EUR"}
+	inv.Sender.Name = "Ventory Handels GmbH"
+	inv.Sender.IBAN = "DE89370400440532013000"
+	for i := 1; i <= n; i++ {
+		inv.Items = append(inv.Items, invoice.LineItem{
+			Position: i, Description: "Wartungspauschale Modul " + strconv.Itoa(i),
+			Quantity: 1000, Unit: "Stk.", UnitPrice: 1000, Total: 1000, VatRate: 1900,
+		})
+	}
+	return inv
+}
+
+func TestGenerate_Pagination(t *testing.T) {
+	t.Run("a short invoice fits on one page", func(t *testing.T) {
+		doc, err := Generate(invoiceWithItems(3), Modern)
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, pageCount(doc))
+	})
+
+	t.Run("a long invoice continues on further pages", func(t *testing.T) {
+		doc, err := Generate(invoiceWithItems(60), Modern)
+
+		require.NoError(t, err)
+		assert.Greater(t, pageCount(doc), 1)
+	})
+
+	t.Run("every item count around the page break renders", func(t *testing.T) {
+		for _, design := range []Design{Classic, Modern, Minimal} {
+			for n := 15; n <= 40; n++ {
+				_, err := Generate(invoiceWithItems(n), design)
+				require.NoError(t, err, "n=%d", n)
+			}
+		}
+	})
+
+	t.Run("a single item with a description longer than a page renders", func(t *testing.T) {
+		inv := invoiceWithItems(1)
+		inv.Items[0].Description = strings.Repeat("Lorem ipsum dolor sit amet ", 400)
+
+		doc, err := Generate(inv, Modern)
+
+		require.NoError(t, err)
+		assert.True(t, bytes.HasPrefix(doc, []byte("%PDF-")))
+	})
+}
+
+func TestPriceHeading(t *testing.T) {
+	assert.Equal(t, "Einzelpreis (EUR)", priceHeading("EUR"))
+	assert.Equal(t, "Einzelpreis (USD)", priceHeading("USD"))
+	assert.Equal(t, "Einzelpreis", priceHeading(""))
+}
+
+func TestColumnGroups_FillGrid(t *testing.T) {
+	assert.Equal(t, gridSize, colAddress+colGutter+colInfo)
+	assert.Equal(t, gridSize, colPos+colDesc+colQty+colPrice+colVat+colAmount)
+}
+
+func TestItemTableHeader_LabelsFitColumns(t *testing.T) {
+	contentWidth := 210.0 - pageLeftMargin - pageRightMargin
+	fpdf := gofpdf.New("P", "mm", "A4", "")
+	fpdf.AddUTF8FontFromBytes(fontFamily, "B", fontBold)
+
+	for name, design := range map[string]Design{"classic": Classic, "modern": Modern, "minimal": Minimal} {
+		fpdf.SetFont(fontFamily, "B", design.sizeSmall)
+		for _, c := range itemColumns("EUR") {
+			label := design.headLabel(c.label)
+			// At least one space between neighbouring labels.
+			needed := fpdf.GetStringWidth(label + " ")
+			available := contentWidth * float64(c.span) / gridSize
+			assert.LessOrEqual(t, needed, available, "%s: %q", name, label)
+		}
+	}
 }

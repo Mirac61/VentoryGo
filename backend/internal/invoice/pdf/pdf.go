@@ -62,7 +62,20 @@ func Generate(inv invoice.Invoice, design Design) ([]byte, error) {
 	addLetterhead(m, inv, design)
 	addAddressAndInfoBlock(m, inv, design)
 	addSubject(m, inv, design)
+
+	// maroto renders a header immediately, so registering it here places it
+	// below the subject and repeats it on continuation pages.
+	if err := m.RegisterHeader(itemTableHeaderRows(inv, design)...); err != nil {
+		return nil, fmt.Errorf("pdf: table header setup failed: %w", err)
+	}
+
 	addItemsTable(m, inv, design)
+
+	// Totals spilling onto a new page must not carry an empty table header.
+	if err := m.RegisterHeader(); err != nil {
+		return nil, fmt.Errorf("pdf: table header reset failed: %w", err)
+	}
+
 	addTotals(m, inv, design)
 	addPaymentBlock(m, inv, design)
 	addNotesAndLegalNotices(m, inv, design)

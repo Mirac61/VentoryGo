@@ -1,18 +1,20 @@
 package pdf
 
 import (
-	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
-
 	"bytes"
 	"fmt"
 	"strconv"
 
+	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
+
 	"github.com/johnfercher/maroto/v2/pkg/components/col"
 	"github.com/johnfercher/maroto/v2/pkg/components/image"
+	"github.com/johnfercher/maroto/v2/pkg/components/page"
 	"github.com/johnfercher/maroto/v2/pkg/components/row"
 	"github.com/johnfercher/maroto/v2/pkg/components/text"
 	"github.com/johnfercher/maroto/v2/pkg/consts/align"
 	"github.com/johnfercher/maroto/v2/pkg/consts/border"
+	"github.com/johnfercher/maroto/v2/pkg/consts/breakline"
 	"github.com/johnfercher/maroto/v2/pkg/consts/extension"
 	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
 	"github.com/johnfercher/maroto/v2/pkg/core"
@@ -40,9 +42,9 @@ const (
 	colInfo    = 10
 
 	colPos    = 1
-	colDesc   = 9
+	colDesc   = 8
 	colQty    = 3
-	colPrice  = 4
+	colPrice  = 5
 	colVat    = 3
 	colAmount = 4
 )
@@ -188,30 +190,42 @@ func addSubject(m core.Maroto, inv invoice.Invoice, design Design) {
 	}))
 }
 
-func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
-	m.AddRows(spacer(4))
+type itemColumn struct {
+	span  int
+	label string
+	align align.Type
+}
 
-	label := func(s string) string {
-		if design.tableHeadUpper {
-			return upper(s)
-		}
-		return s
+func itemColumns(currency string) []itemColumn {
+	return []itemColumn{
+		{colPos, "Pos", align.Left},
+		{colDesc, "Bezeichnung", align.Left},
+		{colQty, "Menge", align.Right},
+		{colPrice, priceHeading(currency), align.Right},
+		{colVat, "USt", align.Right},
+		{colAmount, "Netto", align.Right},
 	}
+}
+
+func (d Design) headLabel(s string) string {
+	if d.tableHeadUpper {
+		return upper(s)
+	}
+	return s
+}
+
+func itemTableHeaderRows(inv invoice.Invoice, design Design) []core.Row {
 	head := props.Text{Size: design.sizeSmall, Style: fontstyle.Bold, Color: design.ink, Top: 2}
 	if design.tableHeadInk != nil {
 		head.Color = design.tableHeadInk
 	}
-	headRight := head
-	headRight.Align = align.Right
 
-	headerRow := m.AddRow(design.tableRowSpacing+1,
-		text.NewCol(colPos, label("Pos."), head),
-		text.NewCol(colDesc, label("Bezeichnung"), head),
-		text.NewCol(colQty, label("Menge"), headRight),
-		text.NewCol(colPrice, label("Einzelpreis"), headRight),
-		text.NewCol(colVat, label("Steuer"), headRight),
-		text.NewCol(colAmount, label("Betrag"), headRight),
-	)
+	headerRow := row.New(design.tableRowSpacing + 1)
+	for _, c := range itemColumns(inv.Currency) {
+		p := head
+		p.Align = c.align
+		headerRow.Add(text.NewCol(c.span, design.headLabel(c.label), p))
+	}
 	headerStyle := &props.Cell{BackgroundColor: design.tableHeadBg}
 	if design.tableHeadRule {
 		headerStyle.BorderType = border.Bottom
@@ -220,14 +234,29 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	}
 	headerRow.WithStyle(headerStyle)
 
+	return []core.Row{spacer(4), headerRow}
+}
+
+func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	body := props.Text{Size: design.sizeBody, Color: design.ink, Top: 2}
 	bodyRight := body
 	bodyRight.Align = align.Right
 
+	descBody := body
+	descBody.BreakLineStrategy = breakline.EmptySpaceStrategy
+
+	// Avoid a single orphaned position on the continuation page.
+	const keepTogether = 2
+	trailingHeight := design.tableRowSpacing * keepTogether
+
 	for i, item := range inv.Items {
+		if i > 0 && i == len(inv.Items)-keepTogether && !m.FitlnCurrentPage(trailingHeight) {
+			m.AddPages(page.New())
+		}
+
 		itemRow := m.AddAutoRow(
 			text.NewCol(colPos, strconv.Itoa(i+1), body),
-			text.NewCol(colDesc, item.Description, body),
+			text.NewCol(colDesc, item.Description, descBody),
 			text.NewCol(colQty, formatQuantityWithUnit(item.Quantity, item.Unit), bodyRight),
 			text.NewCol(colPrice, formatAmount(item.UnitPrice), bodyRight),
 			text.NewCol(colVat, formatVatRate(item.VatRate), bodyRight),
@@ -246,8 +275,15 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	}
 }
 
+func priceHeading(currency string) string {
+	if currency == "" {
+		return "Einzelpreis"
+	}
+	return "Einzelpreis (" + currency + ")"
+}
+
 func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
-	m.AddRows(spacer(3))
+	m.AddRows(spacer(6))
 
 	const (
 		totalsIndent = colPos + colDesc
@@ -413,7 +449,8 @@ func footerRows(inv invoice.Invoice, design Design) []core.Row {
 		stack(8, tax, align.Left),
 		stack(8, bank, align.Right),
 	)
-	return []core.Row{rule, body}
+	// The spacer keeps the last item row off the footer rule.
+	return []core.Row{spacer(4), rule, body}
 }
 
 func footerRule(design Design) core.Row {
