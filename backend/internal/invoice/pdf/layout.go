@@ -1,11 +1,11 @@
 package pdf
 
 import (
-	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
-
 	"bytes"
 	"fmt"
 	"strconv"
+
+	"github.com/Mirac61/VentoryGo/backend/internal/invoice"
 
 	"github.com/johnfercher/maroto/v2/pkg/components/col"
 	"github.com/johnfercher/maroto/v2/pkg/components/image"
@@ -42,9 +42,9 @@ const (
 	colInfo    = 10
 
 	colPos    = 1
-	colDesc   = 9
+	colDesc   = 8
 	colQty    = 3
-	colPrice  = 4
+	colPrice  = 5
 	colVat    = 3
 	colAmount = 4
 )
@@ -190,28 +190,42 @@ func addSubject(m core.Maroto, inv invoice.Invoice, design Design) {
 	}))
 }
 
-func itemTableHeaderRows(inv invoice.Invoice, design Design) []core.Row {
-	label := func(s string) string {
-		if design.tableHeadUpper {
-			return upper(s)
-		}
-		return s
+type itemColumn struct {
+	span  int
+	label string
+	align align.Type
+}
+
+func itemColumns(currency string) []itemColumn {
+	return []itemColumn{
+		{colPos, "Pos", align.Left},
+		{colDesc, "Bezeichnung", align.Left},
+		{colQty, "Menge", align.Right},
+		{colPrice, priceHeading(currency), align.Right},
+		{colVat, "USt", align.Right},
+		{colAmount, "Netto", align.Right},
 	}
+}
+
+func (d Design) headLabel(s string) string {
+	if d.tableHeadUpper {
+		return upper(s)
+	}
+	return s
+}
+
+func itemTableHeaderRows(inv invoice.Invoice, design Design) []core.Row {
 	head := props.Text{Size: design.sizeSmall, Style: fontstyle.Bold, Color: design.ink, Top: 2}
 	if design.tableHeadInk != nil {
 		head.Color = design.tableHeadInk
 	}
-	headRight := head
-	headRight.Align = align.Right
 
-	headerRow := row.New(design.tableRowSpacing+1).Add(
-		text.NewCol(colPos, label("Pos"), head),
-		text.NewCol(colDesc, label("Bezeichnung"), head),
-		text.NewCol(colQty, label("Menge"), headRight),
-		text.NewCol(colPrice, label(priceHeading(inv.Currency)), headRight),
-		text.NewCol(colVat, label("USt"), headRight),
-		text.NewCol(colAmount, label("Netto"), headRight),
-	)
+	headerRow := row.New(design.tableRowSpacing + 1)
+	for _, c := range itemColumns(inv.Currency) {
+		p := head
+		p.Align = c.align
+		headerRow.Add(text.NewCol(c.span, design.headLabel(c.label), p))
+	}
 	headerStyle := &props.Cell{BackgroundColor: design.tableHeadBg}
 	if design.tableHeadRule {
 		headerStyle.BorderType = border.Bottom
@@ -435,7 +449,8 @@ func footerRows(inv invoice.Invoice, design Design) []core.Row {
 		stack(8, tax, align.Left),
 		stack(8, bank, align.Right),
 	)
-	return []core.Row{rule, body}
+	// The spacer keeps the last item row off the footer rule.
+	return []core.Row{spacer(4), rule, body}
 }
 
 func footerRule(design Design) core.Row {

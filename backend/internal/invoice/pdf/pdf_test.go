@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/johnfercher/maroto/v2/pkg/props"
+	"github.com/phpdave11/gofpdf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -286,4 +287,26 @@ func TestPriceHeading(t *testing.T) {
 	assert.Equal(t, "Einzelpreis (EUR)", priceHeading("EUR"))
 	assert.Equal(t, "Einzelpreis (USD)", priceHeading("USD"))
 	assert.Equal(t, "Einzelpreis", priceHeading(""))
+}
+
+func TestColumnGroups_FillGrid(t *testing.T) {
+	assert.Equal(t, gridSize, colAddress+colGutter+colInfo)
+	assert.Equal(t, gridSize, colPos+colDesc+colQty+colPrice+colVat+colAmount)
+}
+
+func TestItemTableHeader_LabelsFitColumns(t *testing.T) {
+	contentWidth := 210.0 - pageLeftMargin - pageRightMargin
+	fpdf := gofpdf.New("P", "mm", "A4", "")
+	fpdf.AddUTF8FontFromBytes(fontFamily, "B", fontBold)
+
+	for name, design := range map[string]Design{"classic": Classic, "modern": Modern, "minimal": Minimal} {
+		fpdf.SetFont(fontFamily, "B", design.sizeSmall)
+		for _, c := range itemColumns("EUR") {
+			label := design.headLabel(c.label)
+			// At least one space between neighbouring labels.
+			needed := fpdf.GetStringWidth(label + " ")
+			available := contentWidth * float64(c.span) / gridSize
+			assert.LessOrEqual(t, needed, available, "%s: %q", name, label)
+		}
+	}
 }
