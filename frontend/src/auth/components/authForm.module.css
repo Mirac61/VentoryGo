@@ -4,9 +4,9 @@
     border: none;
     border-radius: var(--radius-sm);
     background: var(--color-primary);
-    color: #fff;
+    color: var(--color-on-primary);
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: var(--text-md);
     font-weight: 400;
     padding: 12px;
     margin-top: 8px;
@@ -15,7 +15,7 @@
 }
 
 .submit:hover:not(:disabled) {
-    background: #142263;
+    background: var(--color-primary-hover)
 }
 
 .submit:disabled {
@@ -36,10 +36,10 @@
     gap: 10px;
     border: none;
     border-radius: var(--radius-sm);
-    background: #000;
-    color: #fff;
+    background: var(--color-text);
+    color: var(--color-bg);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: var(--text-md);
     font-weight: 400;
     padding: 12px;
     margin-top: 16px;
@@ -51,7 +51,7 @@
     margin-top: 24px;
     text-align: center;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--text-sm);
     color: var(--color-text);
 }
 
@@ -69,7 +69,7 @@
     display: block;
     margin: -8px 0 20px;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--text-sm);
     color: var(--color-text);
     text-decoration: none;
 }
@@ -84,7 +84,7 @@
     display: block;
     margin: -8px 0 20px;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--text-sm);
     color: var(--color-text-muted);
     text-decoration: none;
     cursor: not-allowed;

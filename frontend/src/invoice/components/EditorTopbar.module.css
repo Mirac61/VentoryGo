@@ -11,7 +11,7 @@
 
 .brand {
     font-family: var(--font-display);
-    font-size: 16px;
+    font-size: var(--text-md);
     font-weight: 500;
     color: #fff;
     text-decoration: none;
@@ -23,7 +23,7 @@
     border: none;
     padding: 6px 4px;
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: var(--text-md);
     color: #fff;
     cursor: pointer;
 }
@@ -53,19 +53,19 @@
 .saveState {
     margin-left: 8px;
     font-family: var(--font-sans);
-    font-size: 13px;
+    font-size: var(--text-sm);
     color: rgba(255, 255, 255, 0.7);
 }
 
 .release {
     margin-left: auto;
-    background: #fff;
+    background: var(--color-surface);
     color: var(--color-primary);
     border: none;
     border-radius: var(--radius-md);
     padding: 8px 16px;
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: var(--text-md);
     cursor: pointer;
 }
 

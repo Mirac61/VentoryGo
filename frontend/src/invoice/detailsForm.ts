@@ -65,14 +65,6 @@ function formatQuantity(quantity: number): string {
     return String(quantity).replace('.', ',')
 }
 
-export function formatCentsDisplay(cents: number, currency: string): string {
-    const sign = cents < 0 ? '-' : ''
-    const absolute = Math.abs(cents)
-    const whole = String(Math.floor(absolute / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-    const fraction = String(absolute % 100).padStart(2, '0')
-    return `${sign}${whole},${fraction} ${currency === 'EUR' ? '€' : currency}`
-}
-
 export function formatVatRate(basisPoints: number): string {
     if (basisPoints % 100 === 0) return `${basisPoints / 100} %`
     return `${String(basisPoints / 100).replace('.', ',')} %`

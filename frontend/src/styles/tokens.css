@@ -1,0 +1,73 @@
+@import "@radix-ui/colors/slate.css";
+@import "@radix-ui/colors/slate-dark.css";
+@import "../../../shared/fonts/Mona_Sans/mona-sans.css";
+
+:root {
+  color-scheme: light;
+
+  /* Flächen */
+  --color-bg: var(--slate-2);
+  --color-surface: #fff;
+  --color-field-bg: var(--slate-3);
+  --color-input-bg: var(--slate-4);
+
+  /* Text und Linien */
+  --color-text: var(--slate-12);
+  --color-text-muted: var(--slate-11);
+  --color-stroke: var(--slate-7);
+
+  /* Marke */
+  --color-primary: #0a369d;
+  --color-primary-hover: color-mix(in oklab, var(--color-primary), black 15%);
+  --color-on-primary: #fff;
+  --color-secondary: #4162e3;
+  --color-accent: #2d493d;
+
+  /* Status */
+  --color-error: #c62828;
+  --color-error-subtle: color-mix(in oklab, var(--color-error) 8%, var(--color-surface));
+  --color-success: #276f27;
+  --invoice-draft: #d97706;
+  --invoice-saved: #4b5563;
+  --invoice-sent-unpaid: #2563eb;
+  --invoice-paid: #059669;
+  --invoice-overdue: #dc2626;
+
+  --gradient-topbar: linear-gradient(90deg, #0b1849 0%, #14306f 55%, #0a369d 100%);
+  --gradient1: linear-gradient(90deg, #fdf5ee, #f6f8ff);
+
+  /* Typografie-Skala */
+  --font-sans: 'Mona Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Display nur fuer grosse Grade: Ueberschriften und Kennzahlen. */
+  --font-display: 'Mona Sans Display', var(--font-sans);
+  /* Mona Sans hat keinen unmarkierten tabellarischen Nullschnitt: tnum
+     liefert eine durchgestrichene Null, ss08 eine mit Querstrich. Die
+     Betraege nutzen tnum bewusst -- feste Ziffernbreiten halten Spalten
+     und den Gesamtbetrag beim Aktualisieren stabil. */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+
+  /* Radien, Icons, Schatten */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 20px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --shadow-elevated: 0 20px 40px -12px rgba(11, 24, 73, 0.18), 0 4px 10px -4px rgba(11, 24, 73, 0.08);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-bg: var(--slate-1);
+  --color-surface: var(--slate-2);
+
+  --color-primary: #4162e3;
+  --color-primary-hover: color-mix(in oklab, var(--color-primary), white 12%);
+  --color-error: #f2555a;
+  --color-success: #4cb44c;
+}

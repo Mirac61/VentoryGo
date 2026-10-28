@@ -1,0 +1,98 @@
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("MonaSans-Light.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("MonaSans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("MonaSans-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("MonaSans-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("MonaSans-Bold.woff2") format("woff2");
+}
+
+/* Nur ein Kursiv-Schnitt vorhanden: 400 italic. */
+@font-face {
+  font-family: "Mona Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("MonaSans-Italic.woff2") format("woff2");
+}
+
+
+@font-face {
+  font-family: "Mona Sans Display";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("MonaSansDisplay-Light.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans Display";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("MonaSansDisplay-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans Display";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("MonaSansDisplay-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans Display";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("MonaSansDisplay-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans Display";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("MonaSansDisplay-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Mona Sans Display";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("MonaSansDisplay-BoldItalic.woff2") format("woff2");
+}
