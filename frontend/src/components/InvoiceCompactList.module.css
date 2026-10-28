@@ -80,6 +80,15 @@
     flex-shrink: 0;
 }
 
+/* Hinweis, wenn die Karte nur die neuesten Rechnungen zeigt. */
+.more {
+    margin: 10px 0 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    text-align: right;
+}
+
 /* Skeletons ---------------------------------------------------------------- */
 
 .iconSkeleton {

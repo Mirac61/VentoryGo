@@ -16,6 +16,10 @@ import { api, ApiError } from '../auth/api'
 
 const FIRST_NAME_PLACEHOLDER = 'Max'
 
+// Die Statuskarte zeigt nur die neuesten Rechnungen; die vollstaendige Liste
+// steht in der linken Spalte. So waechst die rechte Spalte nicht mit.
+const COMPACT_LIST_LIMIT = 5
+
 
 export function Dashboard() {
     const { invoices, fetching, refreshing, fetchResult, refetchInvoices } = useInvoices()
@@ -110,7 +114,11 @@ export function Dashboard() {
                             error={fetchResult ? `Fehler: ${fetchResult.message}` : null}
                             loading={fetching}
                         >
-                            <InvoiceCompactList invoices={sortedInvoices} loading={fetching} />
+                            <InvoiceCompactList
+                                invoices={sortedInvoices}
+                                loading={fetching}
+                                limit={COMPACT_LIST_LIMIT}
+                            />
                         </InvoiceStateChart>
                     </div>
                 </div>

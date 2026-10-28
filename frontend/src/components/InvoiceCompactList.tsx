@@ -11,6 +11,9 @@ interface InvoiceCompactListProps {
     // Diagramm dieselbe Reihenfolge zeigen.
     invoices: Invoice[]
     loading: boolean
+    // Nur die neuesten N zeigen. Die vollstaendige Liste steht links im
+    // Dashboard; ohne Angabe wird alles gerendert.
+    limit?: number
 }
 
 // Eine Zeile pro Rechnung, nach dem Muster der iOS-Speicherliste: Icon links,
@@ -29,7 +32,7 @@ function subtitle(invoice: Invoice, status: DisplayStatus): string {
     return STATUS_LABEL[status]
 }
 
-export function InvoiceCompactList({ invoices, loading }: InvoiceCompactListProps) {
+export function InvoiceCompactList({ invoices, loading, limit }: InvoiceCompactListProps) {
     if (loading) {
         return (
             <ul className={styles.list} aria-hidden="true">
@@ -50,37 +53,46 @@ export function InvoiceCompactList({ invoices, loading }: InvoiceCompactListProp
 
     if (invoices.length === 0) return null
 
+    const visible = limit === undefined ? invoices : invoices.slice(0, limit)
+
     return (
-        <ul className={styles.list}>
-            {invoices.map((invoice) => {
-                const status = displayStatus(invoice)
-                const name = invoice.title || invoice.recipient.name || 'Neuer Entwurf'
-                const amount =
-                    invoice.status === 'draft' && invoice.grossTotal === 0
-                        ? '–'
-                        : formatCentsDisplay(invoice.grossTotal, invoice.currency)
-                return (
-                    <li key={invoice.id} className={styles.item}>
-                        <Link
-                            to={`/invoices/${invoice.id}`}
-                            className={styles.row}
-                            aria-label={`${name} öffnen`}
-                        >
-                            <span className={styles.body}>
-                                <span className={styles.name}>{name}</span>
-                                <span className={styles.meta}>{subtitle(invoice, status)}</span>
-                            </span>
-                            <span className={styles.amount}>{amount}</span>
-                            <CaretRightIcon
-                                size={14}
-                                weight="bold"
-                                className={styles.chevron}
-                                aria-hidden="true"
-                            />
-                        </Link>
-                    </li>
-                )
-            })}
-        </ul>
+        <>
+            <ul className={styles.list}>
+                {visible.map((invoice) => {
+                    const status = displayStatus(invoice)
+                    const name = invoice.title || invoice.recipient.name || 'Neuer Entwurf'
+                    const amount =
+                        invoice.status === 'draft' && invoice.grossTotal === 0
+                            ? '–'
+                            : formatCentsDisplay(invoice.grossTotal, invoice.currency)
+                    return (
+                        <li key={invoice.id} className={styles.item}>
+                            <Link
+                                to={`/invoices/${invoice.id}`}
+                                className={styles.row}
+                                aria-label={`${name} öffnen`}
+                            >
+                                <span className={styles.body}>
+                                    <span className={styles.name}>{name}</span>
+                                    <span className={styles.meta}>{subtitle(invoice, status)}</span>
+                                </span>
+                                <span className={styles.amount}>{amount}</span>
+                                <CaretRightIcon
+                                    size={14}
+                                    weight="bold"
+                                    className={styles.chevron}
+                                    aria-hidden="true"
+                                />
+                            </Link>
+                        </li>
+                    )
+                })}
+            </ul>
+            {visible.length < invoices.length && (
+                <p className={styles.more}>
+                    Neueste {visible.length} von {invoices.length}
+                </p>
+            )}
+        </>
     )
 }

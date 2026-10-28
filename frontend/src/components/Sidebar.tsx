@@ -1,16 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { ChevronsUpDown, LayoutDashboard, LogOut, PanelLeft, Receipt, Settings, Users, UsersRound } from 'lucide-react'
+import {
+    CaretUpDownIcon,
+    GearIcon,
+    ReceiptIcon,
+    SidebarSimpleIcon,
+    SignOutIcon,
+    SquaresFourIcon,
+    UsersIcon,
+    UsersThreeIcon,
+} from '@phosphor-icons/react'
 import { useAuth } from '../auth/AuthContext'
 import logo from '../assets/VentoryGo.png'
 import styles from './Sidebar.module.css'
 
 const NAV_ITEMS = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { label: 'Kundenübersicht', icon: Users, path: null },
-    { label: 'Rechnungsübersicht', icon: Receipt, path: null },
-    { label: 'Teams & Mitarbeiter', icon: UsersRound, path: null },
+    { label: 'Dashboard', icon: SquaresFourIcon, path: '/dashboard' },
+    { label: 'Kundenübersicht', icon: UsersIcon, path: null },
+    { label: 'Rechnungsübersicht', icon: ReceiptIcon, path: null },
+    { label: 'Teams & Mitarbeiter', icon: UsersThreeIcon, path: null },
 ] as const
 
 export function Sidebar() {
@@ -46,7 +55,7 @@ export function Sidebar() {
                     aria-label={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
                     aria-expanded={!collapsed}
                 >
-                    <PanelLeft className={styles.icon} />
+                    <SidebarSimpleIcon className={styles.icon} />
                 </button>
             </div>
 
@@ -101,7 +110,7 @@ export function Sidebar() {
                             {!collapsed && (
                                 <>
                                     <span className={styles.email}>{user?.email}</span>
-                                    <ChevronsUpDown className={styles.chevron} />
+                                    <CaretUpDownIcon className={styles.chevron} />
                                 </>
                             )}
                         </button>
@@ -115,14 +124,14 @@ export function Sidebar() {
                             sideOffset={8}
                         >
                             <DropdownMenu.Item className={styles.menuItem} disabled>
-                                <Settings className={styles.menuIcon} />
+                                <GearIcon className={styles.menuIcon} />
                                 Einstellungen
                             </DropdownMenu.Item>
                             <DropdownMenu.Item
                                 className={`${styles.menuItem} ${styles.menuItemDanger}`}
                                 onSelect={() => void logout()}
                             >
-                                <LogOut className={styles.menuIcon} />
+                                <SignOutIcon className={styles.menuIcon} />
                                 Abmelden
                             </DropdownMenu.Item>
                         </DropdownMenu.Content>
