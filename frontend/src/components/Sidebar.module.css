@@ -215,7 +215,7 @@
 /* Dropdown (wird von Radix in ein Portal gerendert, deshalb außerhalb von .sidebar) */
 
 .menu {
-    min-width: max(200px, var(--radix-dropdown-menu-trigger-width));
+    min-width: max(200px, var(--radix-dropdown-menu-trigger-width, 200px));
     padding: 6px;
     background: var(--color-surface);
     border: 1px solid var(--color-stroke);
@@ -254,4 +254,14 @@
     width: var(--icon-sm);
     height: var(--icon-sm);
     flex-shrink: 0;
+}
+
+/* Auf sehr niedrigen Viewports passt der Inhalt nicht mehr in 100vh. Dann wird
+   die Sidebar scrollbar, damit der Konto-Knopf unten erreichbar bleibt. Erst
+   unterhalb dieser Hoehe: `overflow` wuerde die Tooltips der eingeklappten
+   Sidebar abschneiden, die nach rechts aus der Leiste herausragen. */
+@media (max-height: 420px) {
+    .sidebar {
+        overflow-y: auto;
+    }
 }

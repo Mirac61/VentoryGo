@@ -9,6 +9,12 @@ interface InvoiceStateChartProps {
     totalCents: number
     totalCount: number
     currency: string
+    // Bei gemischten Waehrungen sind die Cent-Summen nicht aussagekraeftig;
+    // dann zeigt das Diagramm nur Anzahlen.
+    mixedCurrencies: boolean
+    // Fehler des Rechnungsabrufs. Ohne Rechnungen ersetzt er die Leer-Meldung,
+    // damit "keine Daten" nicht mit "Abruf fehlgeschlagen" verwechselt wird.
+    error?: string | null
     loading: boolean
     // Die Rechnungsliste steht in derselben Karte unter der Legende -- so
     // gehoeren Balken und die konkreten Rechnungen sichtbar zusammen.
@@ -32,10 +38,12 @@ export function InvoiceStateChart({
     totalCents,
     totalCount,
     currency,
+    mixedCurrencies,
+    error,
     loading,
     children,
 }: InvoiceStateChartProps) {
-    const useMoney = totalCents > 0
+    const useMoney = !mixedCurrencies && totalCents > 0
 
     if (loading) {
         return (
@@ -58,10 +66,11 @@ export function InvoiceStateChart({
     }
 
     const summaryLabel = states
-        .map(
-            (entry) =>
-                `${STATUS_LABEL[entry.status]}: ${formatCount(entry.count)} ${plural(entry.count)}, ` +
-                formatCentsDisplay(entry.cents, currency),
+        .map((entry) =>
+            mixedCurrencies
+                ? `${STATUS_LABEL[entry.status]}: ${formatCount(entry.count)} ${plural(entry.count)}`
+                : `${STATUS_LABEL[entry.status]}: ${formatCount(entry.count)} ${plural(entry.count)}, ` +
+                  formatCentsDisplay(entry.cents, currency),
         )
         .join('; ')
 
@@ -69,14 +78,23 @@ export function InvoiceStateChart({
         <section className={styles.card}>
             <div className={styles.header}>
                 <div className={styles.headerValue}>
-                    <span className={styles.total}>{formatCentsDisplay(totalCents, currency)}</span>
+                    {/* Eine Summe ueber verschiedene Waehrungen gibt es nicht --
+                        statt der Waehrung der ersten Rechnung zu zeigen, wird
+                        das hier benannt. */}
+                    <span className={styles.total}>
+                        {mixedCurrencies ? 'Gemischte Währungen' : formatCentsDisplay(totalCents, currency)}
+                    </span>
                     <span className={styles.totalHint}>
                         {formatCount(totalCount)} {plural(totalCount)}
                     </span>
                 </div>
             </div>
 
-            {totalCount === 0 ? (
+            {error && totalCount === 0 ? (
+                <p className={styles.error} role="alert">
+                    {error}
+                </p>
+            ) : totalCount === 0 ? (
                 <p className={styles.empty}>Noch keine Rechnungen erfasst.</p>
             ) : (
                 <>
@@ -101,7 +119,11 @@ export function InvoiceStateChart({
                                             minWidth: '6px',
                                             background: STATUS_COLOR[entry.status],
                                         }}
-                                        title={`${STATUS_LABEL[entry.status]}: ${formatCentsDisplay(entry.cents, currency)}`}
+                                        title={
+                                            mixedCurrencies
+                                                ? `${STATUS_LABEL[entry.status]}: ${formatCount(entry.count)} ${plural(entry.count)}`
+                                                : `${STATUS_LABEL[entry.status]}: ${formatCentsDisplay(entry.cents, currency)}`
+                                        }
                                     />
                                 )
                             })}
@@ -122,9 +144,11 @@ export function InvoiceStateChart({
                                     />
                                     <span className={styles.legendLabel}>{STATUS_LABEL[entry.status]}</span>
                                     <span className={styles.legendCount}>{formatCount(entry.count)}</span>
-                                    <span className={styles.legendAmount}>
-                                        {formatCentsDisplay(entry.cents, currency)}
-                                    </span>
+                                    {!mixedCurrencies && (
+                                        <span className={styles.legendAmount}>
+                                            {formatCentsDisplay(entry.cents, currency)}
+                                        </span>
+                                    )}
                                 </li>
                             )
                         })}

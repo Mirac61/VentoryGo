@@ -38,10 +38,29 @@ export const STATUS_COLOR: Record<DisplayStatus, string> = {
     cancelled: 'var(--invoice-saved)',
 }
 
+// Nur der Kalendertag zaehlt: das Faelligkeitsdatum ist ein Datum, kein
+// Zeitpunkt. Ein Vergleich der Zeitstempel wuerde eine Rechnung je nach Uhrzeit
+// schon am Faelligkeitstag als ueberfaellig zeigen. Sie bleibt "gesendet" bis
+// zum Ende ihres Faelligkeitstags und wird erst am Tag danach ueberfaellig.
+function isoDatePart(value: string): string | null {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+    return match ? match[0] : null
+}
+
+function localDatePart(date: Date): string {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
 // `now` ist injizierbar, damit Tests nicht von der Uhr abhaengen.
 export function displayStatus(invoice: Invoice, now: Date = new Date()): DisplayStatus {
     if (invoice.status === 'issued') {
-        return new Date(invoice.paymentDueAt) < now ? 'overdue' : 'sent'
+        const due = isoDatePart(invoice.paymentDueAt)
+        // Unlesbares Datum: lieber "gesendet" als faelschlich "ueberfaellig".
+        if (due === null) return 'sent'
+        return due < localDatePart(now) ? 'overdue' : 'sent'
     }
     return invoice.status
 }

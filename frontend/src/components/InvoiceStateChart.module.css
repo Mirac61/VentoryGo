@@ -121,6 +121,14 @@
     text-align: center;
 }
 
+.error {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-error);
+    margin: auto 0;
+    text-align: center;
+}
+
 /* Skeletons ---------------------------------------------------------------- */
 
 .skeletonTotal,

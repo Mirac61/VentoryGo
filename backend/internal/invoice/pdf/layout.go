@@ -5,7 +5,7 @@ import (
 
 	"bytes"
 	"fmt"
-	"strconv"	
+	"strconv"
 
 	"github.com/johnfercher/maroto/v2/pkg/components/col"
 	"github.com/johnfercher/maroto/v2/pkg/components/image"
@@ -228,6 +228,13 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	headerRow.WithStyle(headerStyle)
 
 	body := props.Text{Size: design.sizeBody, Color: design.ink, Top: 2}
+	if design.tableRowRule {
+		// Die Trennlinie gehoert zur Position, nicht in eine eigene Zeile: eine
+		// separate Row kann beim Seitenumbruch allein auf der naechsten Seite
+		// landen. Deshalb unten auffuellen und die Linie an die Zeile selbst
+		// haengen.
+		body.Bottom = itemRuleSpacing
+	}
 	bodyRight := body
 	bodyRight.Align = align.Right
 
@@ -244,11 +251,11 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 		case design.zebraBg != nil && i%2 == 1:
 			itemRow.WithStyle(&props.Cell{BackgroundColor: design.zebraBg})
 		case design.tableRowRule:
-				m.AddRow(itemRuleSpacing, col.New(gridSize).WithStyle(&props.Cell{
-					BorderType:      border.Bottom,
-					BorderColor:     design.hairline,
-					BorderThickness: ruleThin,
-			}))
+			itemRow.WithStyle(&props.Cell{
+				BorderType:      border.Bottom,
+				BorderColor:     design.hairline,
+				BorderThickness: ruleThin,
+			})
 		}
 	}
 }

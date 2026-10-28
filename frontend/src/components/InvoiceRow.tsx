@@ -47,13 +47,15 @@ export function InvoiceRow({ invoice, onDelete }: InvoiceRowProps) {
                         {number} · Erstellt am {formatIsoDate(invoice.createdAt)}
                     </div>
                 </div>
-                <div className={styles.amount}>{amount}</div>
-                <div className={styles.status}>
-                    <span
-                        className={styles.dot}
-                        style={{ background: STATUS_COLOR[status] }}
-                    />
-                    {STATUS_LABEL[status]}
+                <div className={styles.trailing}>
+                    <div className={styles.amount}>{amount}</div>
+                    <div className={styles.status}>
+                        <span
+                            className={styles.dot}
+                            style={{ background: STATUS_COLOR[status] }}
+                        />
+                        {STATUS_LABEL[status]}
+                    </div>
                 </div>
             </Link>
 

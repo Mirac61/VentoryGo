@@ -84,7 +84,10 @@ export function Dashboard() {
                             {!fetchResult && !fetching && invoices.length === 0 && (
                                 <p className={styles.emptyText}>Noch keine Rechnungen vorhanden.</p>
                             )}
-                            {!fetchResult && sortedInvoices.map((invoice) => (
+                            {/* Auch bei einem fehlgeschlagenen Nachladen stehen die
+                                zuletzt geladenen Zeilen weiter da -- der Fehler
+                                oben sagt, dass sie evtl. veraltet sind. */}
+                            {sortedInvoices.map((invoice) => (
                                 <InvoiceRow key={invoice.id} invoice={invoice} onDelete={handleDelete} />
                             ))}
                         </div>
@@ -103,6 +106,8 @@ export function Dashboard() {
                             totalCents={stats.totalCents}
                             totalCount={stats.totalCount}
                             currency={stats.currency}
+                            mixedCurrencies={stats.mixedCurrencies}
+                            error={fetchResult ? `Fehler: ${fetchResult.message}` : null}
                             loading={fetching}
                         >
                             <InvoiceCompactList invoices={sortedInvoices} loading={fetching} />

@@ -16,11 +16,12 @@ export interface DashboardStats {
     totalCents: number
     totalCount: number
     // Alle Rechnungen tragen ihre eigene Waehrung, das Backend erlaubt jede
-    // dreibuchstabige. Eine Umrechnung gibt es nicht -- die Anzeige nimmt die
-    // Waehrung der ersten Rechnung und summiert alles. Solange nur EUR
-    // vorkommt, ist das korrekt; bei gemischten Waehrungen waere die Summe
-    // falsch und muesste pro Waehrung gruppiert werden.
+    // dreibuchstabige. Eine Umrechnung gibt es nicht.
     currency: string
+    // Sobald mehr als eine Waehrung vorkommt, waeren Summen ueber alle
+    // Rechnungen hinweg falsch. Dann bleiben totalCents und die cents der
+    // Zustaende bei 0 und die Anzeige laesst Betraege weg, statt sie zu addieren.
+    mixedCurrencies: boolean
 }
 
 export function useDashboardStats(invoices: Invoice[]): DashboardStats {
@@ -32,13 +33,18 @@ export function buildDashboardStats(invoices: Invoice[], now: Date = new Date())
         STATUS_ORDER.map((status) => [status, { status, count: 0, cents: 0 }]),
     )
 
+    const mixedCurrencies = new Set(invoices.map((invoice) => invoice.currency)).size > 1
     let totalCents = 0
 
     for (const invoice of invoices) {
         const bucket = buckets.get(displayStatus(invoice, now))!
         bucket.count++
-        bucket.cents += invoice.grossTotal
-        totalCents += invoice.grossTotal
+        // Cent-Betraege verschiedener Waehrungen liessen sich nur mit Kursen
+        // addieren, die es hier nicht gibt -- deshalb gar nicht erst summieren.
+        if (!mixedCurrencies) {
+            bucket.cents += invoice.grossTotal
+            totalCents += invoice.grossTotal
+        }
     }
 
     const states = STATUS_ORDER.map((status) => buckets.get(status)!).filter(
@@ -50,5 +56,6 @@ export function buildDashboardStats(invoices: Invoice[], now: Date = new Date())
         totalCents,
         totalCount: invoices.length,
         currency: invoices[0]?.currency ?? 'EUR',
+        mixedCurrencies,
     }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ChevronsUpDown, LayoutDashboard, LogOut, PanelLeft, Receipt, Settings, Users, UsersRound } from 'lucide-react'
@@ -16,8 +16,19 @@ const NAV_ITEMS = [
 export function Sidebar() {
     const { pathname } = useLocation()
     const { user, logout } = useAuth()
-    // Auf schmalen Bildschirmen startet die Sidebar eingeklappt.
+    // Auf schmalen Bildschirmen startet die Sidebar eingeklappt. Der Listener
+    // haelt den Zustand aktuell, wenn das Fenster die 860px-Grenze ueberschreitet
+    // -- sonst bliebe die einmal berechnete Startbreite stehen.
     const [collapsed, setCollapsed] = useState(() => window.matchMedia('(max-width: 860px)').matches)
+
+    useEffect(() => {
+        const query = window.matchMedia('(max-width: 860px)')
+        const sync = () => setCollapsed(query.matches)
+        sync()
+        query.addEventListener('change', sync)
+        return () => query.removeEventListener('change', sync)
+    }, [])
+
     const initial = user?.email.charAt(0).toUpperCase() ?? '?'
 
     return (
