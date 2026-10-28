@@ -5,8 +5,8 @@ backend/cmd/pdfpreview/preview*.pdf
 backend/cmd/pdfpreview/*.png
 *.exe
 
-# Node/React
-frontend/node_modules/
+# Node/React -- node_modules auf jeder Ebene, auch im Repo-Root
+node_modules/
 frontend/dist/
 
 # IDE

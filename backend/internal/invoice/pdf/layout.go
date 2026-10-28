@@ -5,7 +5,7 @@ import (
 
 	"bytes"
 	"fmt"
-	"strconv"
+	"strconv"	
 
 	"github.com/johnfercher/maroto/v2/pkg/components/col"
 	"github.com/johnfercher/maroto/v2/pkg/components/image"
@@ -46,6 +46,13 @@ const (
 	colVat    = 3
 	colAmount = 4
 )
+
+const (
+	ruleThin   = 0.2
+	ruleStrong = 0.4
+)
+
+const itemRuleSpacing = 2.0
 
 const lineHeight = 4.2
 
@@ -216,7 +223,7 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	if design.tableHeadRule {
 		headerStyle.BorderType = border.Bottom
 		headerStyle.BorderColor = design.accent
-		headerStyle.BorderThickness = 0.4
+		headerStyle.BorderThickness = ruleStrong
 	}
 	headerRow.WithStyle(headerStyle)
 
@@ -237,11 +244,11 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 		case design.zebraBg != nil && i%2 == 1:
 			itemRow.WithStyle(&props.Cell{BackgroundColor: design.zebraBg})
 		case design.tableRowRule:
-			itemRow.WithStyle(&props.Cell{
-				BorderType:      border.Bottom,
-				BorderColor:     design.hairline,
-				BorderThickness: 0.1,
-			})
+				m.AddRow(itemRuleSpacing, col.New(gridSize).WithStyle(&props.Cell{
+					BorderType:      border.Bottom,
+					BorderColor:     design.hairline,
+					BorderThickness: ruleThin,
+			}))
 		}
 	}
 }
@@ -262,7 +269,7 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 				Size: design.sizeSmall, Color: design.muted, Align: align.Right, Top: 1.4,
 			}),
 			text.NewCol(totalsValue, value, props.Text{
-				Size: design.sizeBody, Color: design.ink, Align: align.Right, Top: 1.2, Right: 2,
+				Size: design.sizeBody, Color: design.ink, Align: align.Right, Top: 1.2,
 			}),
 		)
 	}
@@ -275,12 +282,13 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 	}
 
 	if design.totalRule > 0 {
+		m.AddRows(spacer(1.5))
 		m.AddRow(3,
 			col.New(totalsIndent),
 			col.New(totalsLabel+totalsValue).WithStyle(&props.Cell{
 				BorderType:      border.Top,
 				BorderColor:     design.accent,
-				BorderThickness: design.totalRule,
+				BorderThickness: ruleStrong,
 			}),
 		)
 	}

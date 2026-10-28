@@ -2,7 +2,6 @@ import { PlusIcon } from '@phosphor-icons/react'
 import {
     CURRENCIES,
     VAT_RATES,
-    formatCentsDisplay,
     formatDateGerman,
     formatVatRate,
     isRowSaveable,
@@ -12,6 +11,7 @@ import {
     type ItemMode,
     type ItemRow,
 } from '../detailsForm'
+import { formatCentsDisplay } from '../money'
 import { EditorField } from './EditorField'
 import { EditorSelect } from './EditorSelect'
 import { EditorTextArea } from './EditorTextArea'

@@ -4,7 +4,8 @@ import { Sidebar } from '../components/Sidebar'
 import { Navbar } from '../components/Navbar'
 import { NewInvoiceButton } from '../components/NewInvoiceButton'
 import { InvoiceRow } from '../components/InvoiceRow'
-import { StatTile } from '../components/StatTile'
+import { InvoiceStateChart } from '../components/InvoiceStateChart'
+import { InvoiceCompactList } from '../components/InvoiceCompactList'
 import styles from './Dashboard.module.css'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -17,7 +18,7 @@ const FIRST_NAME_PLACEHOLDER = 'Max'
 
 
 export function Dashboard() {
-    const { invoices, fetching, fetchResult, refetchInvoices } = useInvoices()
+    const { invoices, fetching, refreshing, fetchResult, refetchInvoices } = useInvoices()
   const stats = useDashboardStats(invoices)
 
   const navigate = useNavigate()
@@ -91,21 +92,21 @@ export function Dashboard() {
 
                     <div className={styles.column}>
                         <div className={styles.statsHeader}>
-                            <h2 className={styles.statsTitle}>Statistiken</h2>
-                            <button type="button" className={styles.refreshButton} onClick={refetchInvoices} disabled={fetching}>
-                                {fetching ? 'Lädt …' : 'Aktualisieren'}
+                            <h2 className={styles.statsTitle}>Rechnungsstatus</h2>
+                            <button type="button" className={styles.refreshButton} onClick={refetchInvoices} disabled={refreshing}>
+                                {refreshing ? 'Lädt …' : 'Aktualisieren'}
                             </button>
                         </div>
 
-                        {/* Platzhalter -- das Diagramm folgt in einem spaeteren Schritt. */}
-                        <div className={styles.chartPlaceholder} />
-
-                        <div className={styles.statsGrid}>
-                            <StatTile label="Offene Rechnungen" value={stats.offeneRechnungen} loading={fetching} />
-                            <StatTile label="Bezahlte Rechnungen" value={stats.bezahltDiesenMonat} loading={fetching} />
-                            <StatTile label="Überfällig" value={stats.ueberfaellig} loading={fetching} />
-                            <StatTile label="im Entwurf" value={stats.entwuerfe} loading={fetching} />
-                        </div>
+                        <InvoiceStateChart
+                            states={stats.states}
+                            totalCents={stats.totalCents}
+                            totalCount={stats.totalCount}
+                            currency={stats.currency}
+                            loading={fetching}
+                        >
+                            <InvoiceCompactList invoices={sortedInvoices} loading={fetching} />
+                        </InvoiceStateChart>
                     </div>
                 </div>
             </div>

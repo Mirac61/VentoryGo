@@ -26,7 +26,7 @@
     margin: 0;
     padding: 14px 0;
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: var(--text-md);
     color: var(--color-text-muted);
 }
 
@@ -49,7 +49,7 @@
     padding: 14px 0;
     margin-bottom: -1px;
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: var(--text-md);
     color: var(--color-text-muted);
     cursor: pointer;
 }
@@ -68,7 +68,7 @@
     padding: 10px 24px;
     background: var(--color-field-bg);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--text-sm);
     color: var(--color-text-muted);
 }
 
@@ -93,7 +93,7 @@
 .placeholder {
     margin: 0;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: var(--text-sm);
     color: var(--color-text-muted);
 }
 

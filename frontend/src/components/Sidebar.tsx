@@ -1,57 +1,51 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import {
-    CirclesFourIcon,
-    UserIcon,
-    ReceiptIcon,
-    UsersFourIcon,
-    SidebarSimpleIcon,
-} from '@phosphor-icons/react'
-import styles from './Sidebar.module.css'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { ChevronsUpDown, LayoutDashboard, LogOut, PanelLeft, Receipt, Settings, Users, UsersRound } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
 import logo from '../assets/VentoryGo.png'
+import styles from './Sidebar.module.css'
 
-// Kundenübersicht, Rechnungsübersicht und Teams & Mitarbeiter haben noch keine
-// eigenen Routen -- wie schon in der bisherigen Navbar bleiben sie inert
-// (kein <Link>, kein Klick-Handler), bis die jeweiligen Seiten existieren.
-// Nur Dashboard navigiert wirklich.
 const NAV_ITEMS = [
-    { label: 'Dashboard', icon: CirclesFourIcon, path: '/dashboard' },
-    { label: 'Kundenübersicht', icon: UserIcon, path: null },
-    { label: 'Rechnungsübersicht', icon: ReceiptIcon, path: null },
-    { label: 'Teams & Mitarbeiter', icon: UsersFourIcon, path: null },
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { label: 'Kundenübersicht', icon: Users, path: null },
+    { label: 'Rechnungsübersicht', icon: Receipt, path: null },
+    { label: 'Teams & Mitarbeiter', icon: UsersRound, path: null },
 ] as const
 
 export function Sidebar() {
-    const location = useLocation()
-    // Rein clientseitiger UI-Zustand -- kein Speichern der Praeferenz ueber
-    // einen Reload hinaus, das war in der bisherigen Navbar auch nicht der Fall.
-    const [collapsed, setCollapsed] = useState(false)
+    const { pathname } = useLocation()
+    const { user, logout } = useAuth()
+    // Auf schmalen Bildschirmen startet die Sidebar eingeklappt.
+    const [collapsed, setCollapsed] = useState(() => window.matchMedia('(max-width: 860px)').matches)
+    const initial = user?.email.charAt(0).toUpperCase() ?? '?'
 
     return (
-        <aside className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''}`}>
+        <aside className={styles.sidebar} data-collapsed={collapsed}>
             <div className={styles.header}>
-                <Link to="/dashboard" className={styles.brand}>
-                    <img src={logo} alt="VentoryGo" className={styles.logo} />
-                    {!collapsed}
-                </Link>
+                {!collapsed && (
+                    <Link to="/dashboard" className={styles.brand}>
+                        <img src={logo} alt="VentoryGo" className={styles.logo} />
+                    </Link>
+                )}
                 <button
                     type="button"
-                    className={styles.collapseButton}
+                    className={styles.iconButton}
                     onClick={() => setCollapsed((value) => !value)}
                     aria-label={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
                     aria-expanded={!collapsed}
                 >
-                    <SidebarSimpleIcon size={20} />
+                    <PanelLeft className={styles.icon} />
                 </button>
             </div>
 
-            <nav className={styles.nav}>
+            <nav className={styles.nav} aria-label="Hauptnavigation">
                 {NAV_ITEMS.map(({ label, icon: Icon, path }) => {
-                    const active = path !== null && location.pathname === path
+                    const active = path !== null && pathname === path
                     const content = (
                         <>
-                            <Icon size={20} weight={active ? 'fill' : 'regular'} />
-                            {!collapsed && <span>{label}</span>}
+                            <Icon className={styles.icon} />
+                            {!collapsed && <span className={styles.label}>{label}</span>}
                         </>
                     )
 
@@ -59,8 +53,11 @@ export function Sidebar() {
                         <Link
                             key={label}
                             to={path}
-                            className={`${styles.navItem} ${active ? styles.navItemActive : ''}`}
-                            title={collapsed ? label : undefined}
+                            className={styles.navItem}
+                            data-active={active}
+                            data-label={label}
+                            aria-label={collapsed ? label : undefined}
+                            aria-current={active ? 'page' : undefined}
                         >
                             {content}
                         </Link>
@@ -68,14 +65,59 @@ export function Sidebar() {
                         <span
                             key={label}
                             className={styles.navItem}
+                            data-label={label}
+                            aria-label={collapsed ? label : undefined}
                             aria-disabled="true"
-                            title={collapsed ? label : undefined}
                         >
                             {content}
                         </span>
                     )
                 })}
             </nav>
+
+            <div className={styles.footer}>
+                <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                        <button
+                            type="button"
+                            className={styles.account}
+                            data-label="Konto"
+                            aria-label={collapsed ? 'Konto-Menü' : undefined}
+                        >
+                            <span className={styles.avatar} aria-hidden="true">
+                                {initial}
+                            </span>
+                            {!collapsed && (
+                                <>
+                                    <span className={styles.email}>{user?.email}</span>
+                                    <ChevronsUpDown className={styles.chevron} />
+                                </>
+                            )}
+                        </button>
+                    </DropdownMenu.Trigger>
+
+                    <DropdownMenu.Portal>
+                        <DropdownMenu.Content
+                            className={styles.menu}
+                            side={collapsed ? 'right' : 'top'}
+                            align={collapsed ? 'end' : 'start'}
+                            sideOffset={8}
+                        >
+                            <DropdownMenu.Item className={styles.menuItem} disabled>
+                                <Settings className={styles.menuIcon} />
+                                Einstellungen
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                                className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                                onSelect={() => void logout()}
+                            >
+                                <LogOut className={styles.menuIcon} />
+                                Abmelden
+                            </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+            </div>
         </aside>
     )
 }
