@@ -5,7 +5,6 @@ import Login from './login/login'
 import Register from './register/register'
 import { Dashboard } from './routes/Dashboard'
 import { InvoiceEditor } from './routes/InvoiceEditor'
-import './App.css'
 
 function App() {
     return (

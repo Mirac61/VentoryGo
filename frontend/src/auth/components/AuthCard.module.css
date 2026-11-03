@@ -78,7 +78,7 @@
 .title {
     font-family: var(--font-display);
     margin: 0 0 12px;
-    font-size: 22px;
+    font-size: var(--text-lg);
     font-weight: 400;
     color: var(--color-text);
 }
@@ -89,7 +89,7 @@
     gap: 8px;
     color: var(--color-error);
     font-family: var(--font-sans);
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
     font-weight: 400;
     margin-bottom: 20px;
 }

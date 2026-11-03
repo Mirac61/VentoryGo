@@ -5,6 +5,10 @@
 .DESCRIPTION
     Windows-Gegenstück zu dev.sh. Beide Skripte machen dasselbe in derselben
     Reihenfolge; Änderungen an einem gehören ins andere.
+
+    Docker: Ist ein natives `docker` im PATH (z.B. Docker Desktop), wird es benutzt.
+    Sonst läuft alles über Docker Engine in WSL2 (`wsl -e docker`). Mit
+    DOCKER_VIA_WSL=1 lässt sich WSL erzwingen, auch wenn Docker Desktop installiert ist.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -46,7 +50,51 @@ function Test-PortInUse($port) {
     }
 }
 
-Assert-Command docker 'Docker Desktop starten.'
+# Bevorzugt den Docker Enging in WSL; Docker Desktop als Fallback.
+# DOCKER_VIA_WSL=1 führt Container über WSL aus, =0 über Docker Desktop
+function Test-WslDocker {
+    if (-not (Get-Command wsl -ErrorAction SilentlyContinue)) { return $false }
+    & wsl -e docker info *> $null
+    return $LASTEXITCODE -eq 0
+}
+
+$useWsl = switch ($env:DOCKER_VIA_WSL) {
+    '1'     { $true }
+    '0'     { $false }
+    default { Test-WslDocker }
+}
+
+
+function Invoke-Docker {
+    if ($useWsl) { & wsl -e docker @args } else { & docker @args }
+}
+
+if (-not $useWsl) {
+    Assert-Command docker 'Weder Docker in WSL noch Docker Desktop erreichbar. Siehe scripts/README.md.'
+    Write-Log 'Docker läuft über das native docker CLI (Docker Desktop).'
+} else {
+    Write-Log 'Docker läuft über WSL2 (wsl -e docker).'
+}
+
+Invoke-Docker info *> $null
+if ($LASTEXITCODE -ne 0) {
+    if ($useWsl) {
+        Stop-WithError 'Docker-Daemon in WSL nicht erreichbar. Prüfen mit: wsl -e docker info (Daemon starten: wsl -e sudo service docker start; Rechte: Nutzer in Gruppe docker, danach wsl --shutdown).'
+    }
+    Stop-WithError 'Docker-Daemon nicht erreichbar. Docker Desktop bzw. den Docker-Daemon starten.'
+}
+
+$wslKeepAlive = $null
+if ($useWsl) {
+    $wslKeepAlive = Start-Process wsl -ArgumentList '-e', 'sleep', 'infinity' -WindowStyle Hidden -PassThru
+}
+
+function Stop-WslKeepAlive {
+    if ($wslKeepAlive -and -not $wslKeepAlive.HasExited) {
+        taskkill /PID $wslKeepAlive.Id /T /F 2>$null | Out-Null
+    }
+}
+
 Assert-Command go 'Go installieren: https://go.dev/dl/'
 Assert-Command npm 'Node installieren: https://nodejs.org/'
 Assert-Command node 'Node installieren: https://nodejs.org/'
@@ -92,16 +140,18 @@ if (-not $backendEnv['DATABASE_URL']) {
 
 # --- Postgres ----------------------------------------------------------------
 
+# Hinweis: Läuft nebenher noch Docker Desktop mit einem eigenen Postgres, belegt es
+# Port 5432 und der Container hier startet nicht.
 Write-Log 'Postgres starten ...'
-docker compose up -d postgres
+Invoke-Docker compose up -d postgres
 if ($LASTEXITCODE -ne 0) { Stop-WithError 'docker compose up -d postgres ist fehlgeschlagen.' }
 
-$pgContainer = (docker compose ps -q postgres).Trim()
+$pgContainer = (Invoke-Docker compose ps -q postgres | Out-String).Trim()
 if (-not $pgContainer) { Stop-WithError 'Postgres-Container nicht gefunden.' }
 
 Write-Log 'Warte, bis Postgres Verbindungen annimmt ...'
 $waited = 0
-while ((docker inspect --format '{{.State.Health.Status}}' $pgContainer).Trim() -ne 'healthy') {
+while ((Invoke-Docker inspect --format '{{.State.Health.Status}}' $pgContainer | Out-String).Trim() -ne 'healthy') {
     Start-Sleep -Seconds 1
     $waited++
     if ($waited -ge 60) {
@@ -116,10 +166,18 @@ while ((docker inspect --format '{{.State.Health.Status}}' $pgContainer).Trim() 
 # prozent-kodierte Wert aus backend\.env lässt sich unverändert weiterreichen - der
 # migrate-Service in docker-compose.yml baut die URL dagegen selbst zusammen und
 # zerbricht an Sonderzeichen im Passwort (Issue #71).
+#
+# Liegt die Engine in WSL, braucht der Bind-Mount einen Linux-Pfad (/mnt/c/...).
+$migrationsPath = "${root}\backend\migrations"
+if ($useWsl) {
+    $migrationsPath = (wsl -e wslpath -a ($migrationsPath -replace '\\', '/') | Out-String).Trim()
+    if (-not $migrationsPath) { Stop-WithError 'wslpath konnte den Migrationspfad nicht umwandeln.' }
+}
+
 Write-Log 'Migrationen einspielen ...'
-docker run --rm `
+Invoke-Docker run --rm `
     --network "container:$pgContainer" `
-    -v "${root}\backend\migrations:/migrations:ro" `
+    -v "${migrationsPath}:/migrations:ro" `
     migrate/migrate:v4.19.1 `
     -path=/migrations `
     "-database=$($backendEnv['DATABASE_URL'])" `
@@ -154,7 +212,9 @@ if (-not (Test-Path $modules) -or
 if (Get-Command mprocs -ErrorAction SilentlyContinue) {
     Write-Log 'Starte in getrennten Bereichen (mprocs).'
     mprocs --config (Join-Path $root 'mprocs.yaml')
-    exit $LASTEXITCODE
+    $mprocsExit = $LASTEXITCODE
+    Stop-WslKeepAlive
+    exit $mprocsExit
 }
 
 Write-Log 'Tipp: mit mprocs bekommt jeder Prozess einen eigenen Bereich und seine Farben zurück.'
@@ -223,4 +283,5 @@ try {
             taskkill /PID $process.Id /T /F 2>$null | Out-Null
         }
     }
+    Stop-WslKeepAlive
 }

@@ -49,6 +49,13 @@ const (
 	colAmount = 4
 )
 
+const (
+	ruleThin   = 0.2
+	ruleStrong = 0.4
+)
+
+const itemRuleSpacing = 2.0
+
 const lineHeight = 4.2
 
 // Height of the row that carries the letterhead rule.
@@ -230,7 +237,7 @@ func itemTableHeaderRows(inv invoice.Invoice, design Design) []core.Row {
 	if design.tableHeadRule {
 		headerStyle.BorderType = border.Bottom
 		headerStyle.BorderColor = design.accent
-		headerStyle.BorderThickness = 0.4
+		headerStyle.BorderThickness = ruleStrong
 	}
 	headerRow.WithStyle(headerStyle)
 
@@ -239,6 +246,13 @@ func itemTableHeaderRows(inv invoice.Invoice, design Design) []core.Row {
 
 func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 	body := props.Text{Size: design.sizeBody, Color: design.ink, Top: 2}
+	if design.tableRowRule {
+		// Die Trennlinie gehoert zur Position, nicht in eine eigene Zeile: eine
+		// separate Row kann beim Seitenumbruch allein auf der naechsten Seite
+		// landen. Deshalb unten auffuellen und die Linie an die Zeile selbst
+		// haengen.
+		body.Bottom = itemRuleSpacing
+	}
 	bodyRight := body
 	bodyRight.Align = align.Right
 
@@ -269,7 +283,7 @@ func addItemsTable(m core.Maroto, inv invoice.Invoice, design Design) {
 			itemRow.WithStyle(&props.Cell{
 				BorderType:      border.Bottom,
 				BorderColor:     design.hairline,
-				BorderThickness: 0.1,
+				BorderThickness: ruleThin,
 			})
 		}
 	}
@@ -298,7 +312,7 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 				Size: design.sizeSmall, Color: design.muted, Align: align.Right, Top: 1.4,
 			}),
 			text.NewCol(totalsValue, value, props.Text{
-				Size: design.sizeBody, Color: design.ink, Align: align.Right, Top: 1.2, Right: 2,
+				Size: design.sizeBody, Color: design.ink, Align: align.Right, Top: 1.2,
 			}),
 		)
 	}
@@ -311,12 +325,13 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 	}
 
 	if design.totalRule > 0 {
+		m.AddRows(spacer(1.5))
 		m.AddRow(3,
 			col.New(totalsIndent),
 			col.New(totalsLabel+totalsValue).WithStyle(&props.Cell{
 				BorderType:      border.Top,
 				BorderColor:     design.accent,
-				BorderThickness: design.totalRule,
+				BorderThickness: ruleStrong,
 			}),
 		)
 	}

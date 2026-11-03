@@ -1,44 +1,57 @@
 .sidebar {
+    --sidebar-width: 256px;
+    --sidebar-width-collapsed: 64px;
+
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
     display: flex;
     flex-direction: column;
-    width: 280px;
     flex-shrink: 0;
-    min-height: 100vh;
-    padding: 20px 16px;
-    box-sizing: border-box;
+    width: var(--sidebar-width);
+    height: 100vh;
+    padding: 16px 12px;
+    background: var(--color-field-bg);
     transition: width 0.15s ease;
-    background-color: var(--color-field-bg);
 }
 
-.sidebarCollapsed {
-    width: 76px;
+.sidebar[data-collapsed='true'] {
+    width: var(--sidebar-width-collapsed);
 }
+
+.icon {
+    width: var(--icon-md);
+    height: var(--icon-md);
+    flex-shrink: 0;
+}
+
+/* Header */
 
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 48px;
+    height: 40px;
+    margin-bottom: 24px;
     padding: 0 4px;
+}
+
+.sidebar[data-collapsed='true'] .header {
+    justify-content: center;
+    padding: 0;
 }
 
 .brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    text-decoration: none;
-    min-width: 0;
-    overflow: hidden;
 }
 
 .logo {
     height: 24px;
     width: auto;
-    flex-shrink: 0;
 }
 
-.collapseButton {
+.iconButton {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -50,13 +63,14 @@
     border-radius: var(--radius-sm);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.collapseButton:hover {
-    background: var(--color-field-bg);
+.iconButton:hover {
+    background: var(--color-input-bg);
     color: var(--color-text);
 }
+
+/* Navigation */
 
 .nav {
     display: flex;
@@ -65,65 +79,189 @@
 }
 
 .navItem {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: var(--radius-md);
     font-family: var(--font-sans);
-    font-size: 16px;
-    font-weight: 400;
+    font-size: var(--text-md);
     color: var(--color-text);
     text-decoration: none;
-    padding: 8px 14px;
-    border-radius: var(--radius-md);
-    cursor: default;
     white-space: nowrap;
-    overflow: hidden;
-}
-
-.navItem span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-a.navItem {
     cursor: pointer;
-    transition: background 0.15s ease;
 }
 
-a.navItem:hover {
-    background: var(--color-field-bg);
+.navItem:hover {
+    background: var(--color-input-bg);
+}
+
+.navItem[data-active='true'],
+.navItem[data-active='true']:hover {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
 }
 
 .navItem[aria-disabled='true'] {
     color: var(--color-text-muted);
+    cursor: default;
 }
 
-.navItemActive {
-    background: var(--color-primary);
-    color: #fff;
+.navItem[aria-disabled='true']:hover {
+    background: transparent;
 }
 
-a.navItemActive:hover {
-    background: var(--color-primary);
+.label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-display);
 }
 
-.sidebarCollapsed .navItem {
+.sidebar[data-collapsed='true'] .navItem {
     justify-content: center;
-    padding: 12px;
+    padding: 0;
 }
 
-@media (max-width: 860px) {
+/* Footer: Konto */
+
+.footer {
+    margin-top: auto;
+    padding-top: 12px;
+}
+
+.account {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 48px;
+    padding: 0 8px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.account:hover,
+.account[aria-expanded='true'] {
+    background: var(--color-input-bg);
+}
+
+.sidebar[data-collapsed='true'] .account {
+    justify-content: center;
+    padding: 0;
+}
+
+.avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: var(--radius-lg);
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-size: var(--text-sm);
+    font-weight: 400;
+}
+
+.email {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-sm);
+}
+
+.chevron {
+    width: var(--icon-sm);
+    height: var(--icon-sm);
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+/* Tooltips im eingeklappten Zustand: reines CSS, der Text kommt aus data-label. */
+
+.sidebar[data-collapsed='true'] :is(.navItem, .account):hover::after,
+.sidebar[data-collapsed='true'] :is(.navItem, .account):focus-visible::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-text);
+    color: var(--color-bg);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 20;
+}
+
+/* Steht nach der Regel oben: bei offenem Menü würde der Tooltip es überdecken. */
+.sidebar[data-collapsed='true'] .account[aria-expanded='true']::after {
+    display: none;
+}
+
+/* Dropdown (wird von Radix in ein Portal gerendert, deshalb außerhalb von .sidebar) */
+
+.menu {
+    min-width: max(200px, var(--radix-dropdown-menu-trigger-width, 200px));
+    padding: 6px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-stroke);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-elevated);
+    font-family: var(--font-sans);
+    z-index: 50;
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    cursor: pointer;
+    outline: none;
+}
+
+.menuItem[data-highlighted] {
+    background: var(--color-field-bg);
+}
+
+.menuItem[data-disabled] {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+}
+
+.menuItemDanger {
+    color: var(--color-error);
+}
+
+.menuIcon {
+    width: var(--icon-sm);
+    height: var(--icon-sm);
+    flex-shrink: 0;
+}
+
+/* Auf sehr niedrigen Viewports passt der Inhalt nicht mehr in 100vh. Dann wird
+   die Sidebar scrollbar, damit der Konto-Knopf unten erreichbar bleibt. Erst
+   unterhalb dieser Hoehe: `overflow` wuerde die Tooltips der eingeklappten
+   Sidebar abschneiden, die nach rechts aus der Leiste herausragen. */
+@media (max-height: 420px) {
     .sidebar {
-        width: 76px;
-    }
-
-    .brandName,
-    .navItem span {
-        display: none;
-    }
-
-    .navItem {
-        justify-content: center;
-        padding: 12px;
+        overflow-y: auto;
     }
 }
