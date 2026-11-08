@@ -16,17 +16,10 @@ procs:
     shell: npm run dev
     cwd: frontend
 
-  landing:
-    # Muss im Repo-Root laufen (nicht landing/), sonst kann die Landing Page
-    # nicht auf den Geschwisterordner shared/fonts/ zugreifen -- serve
-    # serviert nur den angegebenen Ordner und alles darunter, nichts darüber.
-    shell: npx serve . -l 4173
-
   proxy:
-    # Führt landing (:4173) und frontend (:5173) unter einem Origin (:8090)
-    # zusammen, damit relative Links wie href="/login" in landing/index.html
-    # funktionieren -- entspricht der Zielarchitektur hinter einem echten
-    # Reverse-Proxy in Produktion.
+    # Führt Landing Page (:4173) und Frontend (:5173) unter einem Origin (:8090)
+    # zusammen. Die Landing Page starten die Dev-Skripte nicht mit -- sie läuft
+    # separat in landing/ (pnpm dev).
     shell: node proxy.js
     cwd: dev-proxy
 

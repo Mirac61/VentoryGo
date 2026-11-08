@@ -1,0 +1,368 @@
+---
+import { Button } from "../components/button";
+import { FaGithub } from "react-icons/fa6";
+
+import { Image } from "astro:assets";
+import logo from "../assets/VentoryGoLogo.png";
+import invoicePreview from "../assets/InvoicePreview.png";
+import "./index.css";
+
+const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:5173";
+const githubUrl = "https://github.com/Mirac61/VentoryGo";
+---
+
+<html lang="de" data-type="software">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href="/favicon.png" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="page-type" content="software" />
+		<meta name="site-kind" content="software" />
+		<meta
+			name="description"
+			content="VentoryGo ist die Open-Source-Rechnungssoftware zum Selbsthosten: Rechnungen schreiben, live als PDF sehen und deine Daten auf deinem eigenen Server behalten."
+		/>
+		<title>VentoryGo — Rechnungssoftware zum Selbsthosten</title>
+	</head>
+	<body>
+		<div id="smooth-wrapper">
+			<div id="smooth-content">
+		<header class="hero">
+
+			<nav class="nav container">
+				<a href="/" class="nav__logo" aria-label="VentoryGo Startseite">
+					<Image src={logo} alt="VentoryGo" height={36} />
+				</a>
+
+				<ul class="nav__list">
+					<li class="nav__github">
+						<Button
+							variant="outline"
+							icon={FaGithub({})}
+							href={githubUrl}
+							target="_blank"
+							rel="noreferrer"
+						>
+							In GitHub ansehen
+						</Button>
+					</li>
+					<li><Button href={`${appUrl}/login`}>Anmelden</Button></li>
+				</ul>
+			</nav>
+
+			<section class="hero__content container">
+				<div class="hero__content-left">
+					<h1 class="hero__title">
+						Volle Kontrolle über deine Rechnungen.
+					</h1>
+					<p class="hero__desc">
+						Die Open-Source / Self-Hosted Rechnungssoftware für Privatpersonen,
+						Freelancer und Unternehmen. Datensicher, GoBD-orientiert und direkt auf
+						deiner eigenen Infrastruktur.
+					</p>
+					<Button href={`${appUrl}/register`} target="_blank">Jetzt starten</Button>
+				</div>
+
+				<Image
+					src={invoicePreview}
+					alt="Rechnungsvorschau von VentoryGo"
+					class="hero__preview"
+					loading="eager"
+				/>
+			</section>
+		</header>
+
+		<main>
+			<section class="toolkit container" id="toolkit">
+				<div class="toolkit__head">
+					<h2 class="toolkit__title">Dein Toolkit für Rechnungen</h2>
+					<p class="toolkit__intro">
+						Vom leeren Entwurf bis zur fertigen Rechnung: vier Bausteine,
+						die den Rechnungsalltag übernehmen — ohne Cloud und ohne Abo.
+					</p>
+				</div>
+
+				<div class="toolkit__bento">
+					<article class="card card--editor">
+						<div class="card__body">
+							<span class="card__tag">Editor</span>
+							<h3 class="card__title">Schreiben und sofort sehen, was entsteht.</h3>
+							<p class="card__text">
+								Kunde, Positionen und Steuersätze eintragen. Die PDF-Vorschau
+								aktualisiert sich beim Tippen, Änderungen werden automatisch gespeichert.
+							</p>
+						</div>
+
+						<div class="editor-demo" aria-hidden="true">
+							<div class="editor-demo__form">
+								<div class="demo-field">
+									<span>Kunde</span>
+									<strong>Hafengesellschaft mbH</strong>
+								</div>
+								<div class="demo-field">
+									<span>Position</span>
+									<strong>1558 Edelstahl</strong>
+								</div>
+								<div class="demo-field demo-field--split">
+									<div>
+										<span>Menge</span>
+										<strong>31 kg</strong>
+									</div>
+									<div>
+										<span>Steuer</span>
+										<strong>19 %</strong>
+									</div>
+								</div>
+							</div>
+
+							<div class="paper">
+								<strong class="paper__brand">VentoryGo</strong>
+								<span class="paper__meta">Rechnungsentwurf</span>
+								<span class="paper__rule"></span>
+								<span class="paper__row"><span>Edelstahl</span><span>434,00 €</span></span>
+								<span class="paper__row"><span>Aluminium</span><span>20,00 €</span></span>
+								<span class="paper__total"><span>Gesamt</span><span>540,26 €</span></span>
+							</div>
+						</div>
+					</article>
+
+					<article class="card card--dashboard">
+						<div class="card__body">
+							<span class="card__tag">Dashboard</span>
+							<h3 class="card__title">Jede Rechnung im Blick.</h3>
+							<p class="card__text">
+								Entwürfe, offene Beträge und überfällige Rechnungen in einer
+								Übersicht — mit Summe, Status und Fälligkeit.
+							</p>
+						</div>
+
+						<div class="dashboard-demo" aria-hidden="true">
+							<strong class="dashboard-demo__total">12.480,00 €</strong>
+							<span class="dashboard-demo__meta">18 Rechnungen</span>
+							<div class="dashboard-demo__bar">
+								<span style="width: 18%; background: #d97706;"></span>
+								<span style="width: 32%; background: #2563eb;"></span>
+								<span style="width: 38%; background: #059669;"></span>
+								<span style="width: 12%; background: #dc2626;"></span>
+							</div>
+							<ul class="dashboard-demo__legend">
+								<li><i style="background: #d97706;"></i>Entwurf</li>
+								<li><i style="background: #2563eb;"></i>Offen</li>
+								<li><i style="background: #059669;"></i>Bezahlt</li>
+								<li><i style="background: #dc2626;"></i>Überfällig</li>
+							</ul>
+						</div>
+					</article>
+
+					<article class="card card--byos">
+						<div class="card__body">
+							<span class="card__tag">Self-Hosted</span>
+							<h3 class="card__title">Dein Server. Deine Daten.</h3>
+							<p class="card__text">
+								VentoryGo läuft als Docker-Container auf deinem NAS, Server
+								oder einer VM. Keine Cloud, kein Vendor-Lock-in.
+							</p>
+						</div>
+
+						<div class="terminal" aria-hidden="true">
+							<div class="terminal__bar">
+								<span></span><span></span><span></span>
+							</div>
+							<pre><code><b>$</b> docker compose up -d
+<span class="terminal__ok">✓</span> Container ventorygo-postgres-1 <span style="color: #059669">Started</span>
+</code></pre>
+						</div>
+					</article>
+
+					<article class="card card--gobd">
+						<div class="card__body">
+							<span class="card__tag">GoBD</span>
+							<h3 class="card__title">Sauber dokumentiert von Anfang an.</h3>
+							<p class="card__text">
+								Fortlaufende Rechnungsnummern, ausgestellte Rechnungen bleiben
+								unverändert. Beträge werden in Cent gerechnet — ohne Rundungsfehler.
+							</p>
+						</div>
+
+						<ul class="checklist">
+							<li>Fortlaufende Rechnungsnummern</li>
+							<li>Unveränderliche Historie</li>
+							<li>Beträge in Cent, nicht in Gleitkomma</li>
+						</ul>
+					</article>
+				</div>
+			</section>
+
+			<section class="faq container" id="faq">
+				<div class="faq__head">
+					<h2 class="faq__title">Was heute geht — und was noch nicht.</h2>
+					<p class="faq__intro">
+						Die Antworten folgen dem aktuellen Stand des Repos. Offene Punkte
+						sind direkt mit dem jeweiligen Issue verlinkt.
+					</p>
+				</div>
+
+				<div class="faq__list">
+					<details class="faq__item">
+						<summary>Ist VentoryGo kostenlos?</summary>
+						<p>
+							Ja. VentoryGo ist Open Source unter AGPL-3.0 und läuft auf
+							deiner eigenen Infrastruktur — ohne Abo und ohne Cloud-Kosten.
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Wo liegen meine Daten?</summary>
+						<p>
+							In einer PostgreSQL-Datenbank auf deinem Server. Rechnungen,
+							Absender- und Empfängerdaten verlassen deine Infrastruktur
+							nicht; es gibt keinen Cloud-Sync.
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Wie installiere ich VentoryGo?</summary>
+						<p>
+							Docker Compose (Profil docker) startet PostgreSQL,
+							Migrationen und das Go-Backend, der React-Client läuft aus dem
+							Repo. Ein geführtes Setup und ausführliche Installationsdocs
+							stehen noch auf der Liste
+							(<a href={`${githubUrl}/issues/71`}>#71</a>).
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Was kann ich heute schon machen?</summary>
+						<p>
+							Entwürfe anlegen, bearbeiten und automatisch speichern,
+							Rechnungen mit fortlaufender Nummer ausstellen, Positionen mit
+							eigenem Steuersatz erfassen und die Rechnung live als PDF
+							ansehen und herunterladen. Beträge werden in Cent gerechnet.
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>
+							Kann ich Rechnungen ändern, löschen, als bezahlt markieren
+							oder stornieren?
+						</summary>
+						<p>
+							Nur Entwürfe lassen sich bearbeiten oder löschen. Ausgestellte
+							Rechnungen sind unveränderlich. Bezahlt-Markierung und Storno
+							sind noch nicht umgesetzt
+							(<a href={`${githubUrl}/issues/21`}>#21</a>,{" "}
+							<a href={`${githubUrl}/issues/22`}>#22</a>).
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Kann ich das PDF anpassen?</summary>
+						<p>
+							Das PDF ist A4 und folgt einem festen Layout. Logo,
+							Akzentfarbe und eigene Texte lassen sich noch nicht in der App
+							einstellen (<a href={`${githubUrl}/issues/75`}>#75</a>).
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Kann ich Rechnungen per E-Mail senden?</summary>
+						<p>
+							Noch nicht. SMTP-Anbindung und Versand stehen auf der Liste
+							(<a href={`${githubUrl}/issues/29`}>#29</a>,{" "}
+							<a href={`${githubUrl}/issues/30`}>#30</a>) — bis dahin lädst du
+							das PDF herunter und versendest es selbst.
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Gibt es eine Kundenverwaltung?</summary>
+						<p>
+							Noch nicht (<a href={`${githubUrl}/issues/76`}>#76</a>).
+							Absender- und Empfängerdaten trägst du pro Rechnung ein; sie
+							werden mit der Rechnung gespeichert.
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Können mehrere Personen zusammenarbeiten?</summary>
+						<p>
+							Aktuell gehört jede Rechnung genau einem Konto. Gemeinsame
+							Organisationen (Tenants), Einladungen und Rollen sind in Arbeit
+							(<a href={`${githubUrl}/issues/82`}>#82</a>,{" "}
+							<a href={`${githubUrl}/issues/86`}>#86</a>).
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Gibt es E-Invoicing wie XRechnung oder ZUGFeRD?</summary>
+						<p>
+							Noch nicht. Die Formate sind vorgemerkt
+							(<a href={`${githubUrl}/issues/63`}>#63</a>,{" "}
+							<a href={`${githubUrl}/issues/66`}>#66</a>–<a href={`${githubUrl}/issues/68`}>#68</a>);
+							aktuell gibt es Rechnungen als PDF.
+						</p>
+					</details>
+
+					<details class="faq__item">
+						<summary>Ist VentoryGo GoBD-konform?</summary>
+						<p>
+							Die Grundlagen sind umgesetzt: ausgestellte Rechnungen sind
+							unveränderlich, Nummern laufen fort, Beträge werden in Cent
+							gerechnet. Zertifiziert ist VentoryGo nicht; Aufbewahrung,
+							Audit-Log und Mandantentrennung sind noch offen
+							(<a href={`${githubUrl}/issues/65`}>#65</a>,{" "}
+							<a href={`${githubUrl}/issues/88`}>#88</a>,{" "}
+							<a href={`${githubUrl}/issues/89`}>#89</a>).
+						</p>
+					</details>
+				</div>
+			</section>
+		</main>
+
+		<footer class="closing">
+			<div class="closing__inner container">
+				<div class="closing__cta">
+					<p class="closing__eyebrow">Bereit?</p>
+					<h2>Deine Rechnungen. Deine Infrastruktur.</h2>
+					<p>
+						VentoryGo ist Open Source und läuft auf deinem eigenen Server.
+						Starte in wenigen Minuten — ohne Cloud, ohne Abo.
+					</p>
+					<div class="closing__actions">
+						<Button className="btn--light" href={`${appUrl}/register`}>
+							Jetzt registrieren
+						</Button>
+					</div>
+				</div>
+
+				<div class="closing__footer">
+					<a href="/" class="closing__brand" aria-label="VentoryGo Startseite">
+						<Image src={logo} alt="VentoryGo" height={24} class="closing__logo" />
+						<span>Open Source unter AGPL-3.0.</span>
+					</a>
+					<nav class="closing__nav" aria-label="Footer">
+						<a href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+						<a href={`${appUrl}/login`}>Anmelden</a>
+						<a href={`${appUrl}/register`}>Registrieren</a>
+					</nav>
+					<span class="closing__copy">© 2026 VentoryGo</span>
+				</div>
+			</div>
+		</footer>
+			</div>
+		</div>
+
+		<script>
+			import gsap from "gsap";
+			import { ScrollTrigger } from "gsap/ScrollTrigger";
+			import { ScrollSmoother } from "gsap/ScrollSmoother";
+
+			gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
+
+			if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+				ScrollSmoother.create({ smooth: 1, smoothTouch: false });
+			}
+		</script>
+	</body>
+</html>
