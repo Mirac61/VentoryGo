@@ -8,7 +8,7 @@ backend/cmd/pdfpreview/*.png
 # Node/React -- node_modules auf jeder Ebene, auch im Repo-Root
 node_modules/
 frontend/dist/
-
+.agents/
 # IDE
 .idea/
 .vscode/
