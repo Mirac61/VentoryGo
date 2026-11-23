@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Starts the full dev stack in the right order: Postgres, migrations, backend,
-# frontend, landing page, dev proxy.
+# frontend, dev proxy.
 # Windows users: use dev.ps1 instead.
 #
 # Written for bash 3.2, the version macOS still ships, and without GNU-only flags --
@@ -14,12 +14,10 @@ cd "$ROOT"
 
 BACKEND_PORT=8080
 FRONTEND_PORT=5173
-LANDING_PORT=4173
 PROXY_PORT=8090
 
 CYAN='\033[36m'
 GREEN='\033[32m'
-MAGENTA='\033[35m'
 YELLOW='\033[33m'
 RED='\033[31m'
 RESET='\033[0m'
@@ -47,7 +45,7 @@ cleanup() {
     [ -n "$cleaned" ] && return
     cleaned=1
     trap - EXIT INT TERM
-    [ -n "$child_pids" ] && log "Stoppe Backend, Frontend, Landing Page und Proxy …"
+    [ -n "$child_pids" ] && log "Stoppe Backend, Frontend und Proxy …"
     for pid in $child_pids; do
         kill_tree "$pid"
     done
@@ -82,9 +80,6 @@ if port_in_use "$BACKEND_PORT"; then
 fi
 if port_in_use "$FRONTEND_PORT"; then
     fail "Port $FRONTEND_PORT ist belegt. Läuft noch ein altes Vite? Der Dev-Proxy leitet fest auf $FRONTEND_PORT."
-fi
-if port_in_use "$LANDING_PORT"; then
-    fail "Port $LANDING_PORT ist belegt. Läuft noch eine alte Landing Page?"
 fi
 if port_in_use "$PROXY_PORT"; then
     fail "Port $PROXY_PORT ist belegt. Läuft noch ein alter Dev-Proxy?"
@@ -179,8 +174,8 @@ fi
 # Pipe des Fallbacks unten verloren gehen. Optional, damit das Skript ohne zusätzliche
 # Installation funktioniert.
 #
-# Landing Page und Dev-Proxy sind in mprocs.yaml als eigene Prozesse hinterlegt
-# (landing, proxy) -- mprocs startet sie automatisch mit, kein Zutun hier nötig.
+# Der Dev-Proxy ist in mprocs.yaml als eigener Prozess hinterlegt -- mprocs startet
+# ihn automatisch mit. Die Landing Page läuft separat in landing/.
 if command -v mprocs >/dev/null 2>&1; then
     log "Starte in getrennten Bereichen (mprocs)."
     exec mprocs --config "$ROOT/mprocs.yaml"
@@ -209,25 +204,18 @@ backend_pid=$!
 run_prefixed frontend "$GREEN" frontend npm run dev
 frontend_pid=$!
 
-# Landing Page läuft im Repo-Root (nicht landing/), sonst kein Zugriff auf den
-# Geschwisterordner shared/fonts/ -- serve serviert nur den angegebenen Ordner
-# und alles darunter, nichts darüber.
-run_prefixed landing "$MAGENTA" "$ROOT" npx serve . -l "$LANDING_PORT"
-landing_pid=$!
-
 run_prefixed proxy "$YELLOW" dev-proxy node proxy.js
 proxy_pid=$!
 
-child_pids="$backend_pid $frontend_pid $landing_pid $proxy_pid"
+child_pids="$backend_pid $frontend_pid $proxy_pid"
 
-log "Backend auf :$BACKEND_PORT, Frontend auf :$FRONTEND_PORT, Landing auf :$LANDING_PORT, Proxy auf :$PROXY_PORT."
-log "Alles zusammen erreichbar unter http://localhost:$PROXY_PORT. Beenden mit Strg-C."
+log "Backend auf :$BACKEND_PORT, Frontend auf :$FRONTEND_PORT, Proxy auf :$PROXY_PORT."
+log "App und Landing Page erreichbar unter http://localhost:$PROXY_PORT (Landing Page separat in landing/ starten). Beenden mit Strg-C."
 
-# bash 3.2 kennt kein `wait -n`, deshalb pollen statt warten: sobald einer der vier
+# bash 3.2 kennt kein `wait -n`, deshalb pollen statt warten: sobald einer der drei
 # Prozesse weg ist, sollen auch die anderen gehen -- ein halber Stack hilft niemandem.
 while kill -0 "$backend_pid" 2>/dev/null \
     && kill -0 "$frontend_pid" 2>/dev/null \
-    && kill -0 "$landing_pid" 2>/dev/null \
     && kill -0 "$proxy_pid" 2>/dev/null; do
     sleep 1
 done

@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-    Startet den kompletten Dev-Stack: Postgres, Migrationen, Backend, Frontend, Landing Page, Dev-Proxy.
+    Startet den kompletten Dev-Stack: Postgres, Migrationen, Backend, Frontend, Dev-Proxy.
 .DESCRIPTION
     Windows-Gegenstück zu dev.sh. Beide Skripte machen dasselbe in derselben
     Reihenfolge; Änderungen an einem gehören ins andere.
@@ -18,7 +18,6 @@ Set-Location $root
 
 $backendPort = 8080
 $frontendPort = 5173
-$landingPort = 4173
 $proxyPort = 8090
 
 function Write-Log($message) { Write-Host "[dev] $message" -ForegroundColor Green }
@@ -107,9 +106,6 @@ if (Test-PortInUse $backendPort) {
 }
 if (Test-PortInUse $frontendPort) {
     Stop-WithError "Port $frontendPort ist belegt. Läuft noch ein altes Vite? Der Dev-Proxy leitet fest auf $frontendPort."
-}
-if (Test-PortInUse $landingPort) {
-    Stop-WithError "Port $landingPort ist belegt. Läuft noch eine alte Landing Page?"
 }
 if (Test-PortInUse $proxyPort) {
     Stop-WithError "Port $proxyPort ist belegt. Läuft noch ein alter Dev-Proxy?"
@@ -207,8 +203,8 @@ if (-not (Test-Path $modules) -or
 # umgeleiteten Streams im Fallback unten verloren gehen. Optional, damit das Skript ohne
 # zusätzliche Installation funktioniert.
 #
-# Landing Page und Dev-Proxy sind in mprocs.yaml als eigene Prozesse hinterlegt
-# (landing, proxy) -- mprocs startet sie automatisch mit, kein Zutun hier nötig.
+# Der Dev-Proxy ist in mprocs.yaml als eigener Prozess hinterlegt -- mprocs startet
+# ihn automatisch mit. Die Landing Page läuft separat in landing/.
 if (Get-Command mprocs -ErrorAction SilentlyContinue) {
     Write-Log 'Starte in getrennten Bereichen (mprocs).'
     mprocs --config (Join-Path $root 'mprocs.yaml')
@@ -260,15 +256,12 @@ try {
     # Auflösungsmechanismus wie ein manuell getipptes `npm run dev` und trifft
     # daher zuverlässig npm.ps1.
     $processes += Start-Prefixed 'frontend' 'Green' 'frontend' 'powershell.exe' '-NoProfile -Command "npm run dev"'
-    # Landing Page läuft im Repo-Root (nicht landing/), sonst kein Zugriff auf
-    # den Geschwisterordner shared/fonts/. cwd '.' entspricht $root selbst.
-    $processes += Start-Prefixed 'landing' 'Magenta' '.' 'powershell.exe' "-NoProfile -Command `"npx serve . -l $landingPort`""
     $processes += Start-Prefixed 'proxy' 'Yellow' 'dev-proxy' 'node' 'proxy.js'
 
-    Write-Log "Backend auf :$backendPort, Frontend auf :$frontendPort, Landing auf :$landingPort, Proxy auf :$proxyPort."
-    Write-Log "Alles zusammen erreichbar unter http://localhost:$proxyPort. Beenden mit Strg-C."
+    Write-Log "Backend auf :$backendPort, Frontend auf :$frontendPort, Proxy auf :$proxyPort."
+    Write-Log "App und Landing Page erreichbar unter http://localhost:$proxyPort (Landing Page separat in landing/ starten). Beenden mit Strg-C."
 
-    # Sobald einer der vier weg ist, sollen auch die anderen gehen - ein halber Stack
+    # Sobald einer der drei weg ist, sollen auch die anderen gehen - ein halber Stack
     # hilft niemandem.
     while (-not ($processes | Where-Object { $_.HasExited })) {
         Start-Sleep -Seconds 1

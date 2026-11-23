@@ -29,8 +29,8 @@ function App() {
                             </RequireAuth>
                         }
                     />
-                    {/* Landing page ist eine separate statische Seite unter /,
-              die React-App übernimmt nur /login, /register, ... */}
+                    {/* Self-Hosted startet beim Login; die Landing Page läuft
+              als separate gehostete Instanz. */}
                     <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
             </AuthProvider>

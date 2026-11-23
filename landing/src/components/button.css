@@ -1,0 +1,56 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid transparent;
+  border-radius: var(--btn-radius, 9999px);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 180ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    filter 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+  align-self: flex-start;
+}
+
+.btn--filled {
+  background: var(--btn-bg, #222);
+  color: var(--btn-color, #fff);
+}
+
+.btn--outline {
+  background: transparent;
+  color: var(--btn-color, #222);
+  border-color: currentColor;
+}
+
+.btn__icon { display: inline-flex; }
+
+.btn:not(:has(.btn__label)) { padding: 0.75rem; aspect-ratio: 1; }
+
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.06);
+  }
+
+  .btn--outline:hover {
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:hover,
+  .btn:active {
+    transform: none;
+  }
+}
