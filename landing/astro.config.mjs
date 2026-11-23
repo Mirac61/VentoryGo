@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url'
 import react from '@astrojs/react';
 
 export default defineConfig({
+  base: '/landing/',
   server: { port: 4173 },
-
   vite: {
     server: {
       strictPort: true,

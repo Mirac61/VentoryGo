@@ -82,7 +82,7 @@ button:focus-visible {
   isolation: isolate;
   display: flex;
   flex-direction: column;
-  height: clamp(480px, 38vw, 640px);
+  min-height: clamp(480px, 38vw, 640px);
   overflow: hidden;
   background: linear-gradient(180deg, var(--paper), #fff 85%);
 }
@@ -126,7 +126,7 @@ main::before,
   position: absolute;
   inset-block: 0;
   left: 50%;
-  width: var(--page-max);
+  width: min(var(--page-max), 100%);
   transform: translateX(-50%);
   background-image:
     repeating-linear-gradient(to bottom, var(--rail) 0 12px, transparent 12px 24px),
@@ -728,10 +728,6 @@ main {
 }
 
 @media (max-width: 700px) {
-  .hero {
-    height: auto;
-  }
-
   .hero::after {
     background: radial-gradient(
       circle 300px at 50% 45%,
