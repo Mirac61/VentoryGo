@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"log/slog"
 
 	"github.com/golang-migrate/migrate/v4"
 	pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -61,6 +62,6 @@ func migrateDatabase(pool *pgxpool.Pool) error {
 		return fmt.Errorf("reading schema version: %w", err)
 	}
 
-	log.Printf("database schema at version %d", version)
+	slog.Info("database schema", "version ", version)
 	return nil
 }
