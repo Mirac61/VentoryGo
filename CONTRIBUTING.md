@@ -12,8 +12,15 @@ cp .env.example .env                  # Postgres-Zugangsdaten für den Container
 cp backend/.env.example backend/.env  # DSNs für go run / go test auf dem Host
 ```
 
-Das Passwort muss in beiden Dateien identisch sein. Sonderzeichen in den `*_URL`-Variablen
-prozent-kodieren (`@` → `%40`), sonst scheitert schon das Parsen des DSN.
+Das Passwort muss in beiden Dateien dasselbe sein. In der Root-`.env` steht es nur einmal
+als `POSTGRES_PASSWORD` und darf beliebige Zeichen enthalten; Compose reicht es unverändert
+an den Container weiter. In `backend/.env` steht es in den `*_URL`-Variablen und muss dort
+prozent-kodiert sein (`@` → `%40`, `?` → `%3F`, `}` → `%7D`), sonst scheitert schon das
+Parsen des DSN. Erzeugen mit:
+
+```bash
+node -p "encodeURIComponent(process.argv[1])" 'mein}pw'
+```
 
 Danach reicht ein Befehl — er startet Postgres, spielt die Migrationen ein und hängt
 Backend und Frontend mit getrennt beschrifteter Ausgabe daneben. Strg-C beendet alles:

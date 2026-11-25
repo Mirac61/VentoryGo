@@ -71,7 +71,6 @@ Ausgabe in einem Terminal.
 | `Proxy-Fehler … 4173` | Die Landing Page läuft nicht. Separat starten: `cd landing && pnpm dev`. |
 | `failed to connect to database: /tmp/.s.PGSQL.5432` | `DATABASE_URL` war nicht gesetzt. `go run .` liest **keine** `.env`, `main.go` ruft nur `os.Getenv`. Das Skript setzt sie; von Hand braucht es `set -a; . ./backend/.env; set +a`. |
 | Es erscheint die React-Startseite statt der Anmeldung | Falscher Branch. Das Skript liefert aus, was im Arbeitsbaum liegt. |
-| `invalid character "}" in host name` | Nur auf dem `--profile docker`-Pfad: Compose setzt das Passwort ungekodiert in eine URL ein. Siehe Issue #71 — die Skripte umgehen das. |
 
 ## Was die Skripte bewusst nicht tun
 
