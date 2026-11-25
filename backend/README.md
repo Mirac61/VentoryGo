@@ -5,16 +5,27 @@ Go/Gin REST API für Rechnungsverwaltung, Postgres-Persistenz via `pgx`.
 ## Setup
 
 ```bash
-cp .env.example .env   # DATABASE_URL, POSTGRES_USER/PASSWORD/DB ausfüllen
+# im Repo-Root
+cp .env.example .env
+cp backend/.env.example backend/.env
 docker compose up -d postgres
-migrate -path migrations -database "$DATABASE_URL" up
-go run .
+
+cd backend
+set -a; source .env; set +a   # go run liest keine .env
+go run .                      # :8080, wendet ausstehende Migrationen an
 ```
 
 Server läuft auf `:8080`.
 
-Ganzer Stack in Docker: `docker compose --profile docker up`. Dort migriert ein eigener
-`migrate`-Service vor dem Backend-Start, der `migrate`-Aufruf von Hand entfällt.
+Migrationen laufen beim Start automatisch. Für einen getrennten Migrationsschritt
+`MIGRATE_ON_START=false` setzen und sie vorab anwenden:
+
+```bash
+migrate -path migrations -database "$DATABASE_URL" up
+```
+
+Ganzer Stack in Docker: `docker compose --profile docker up`. Der `migrate`-Service läuft
+dort vor dem Backend und ist damit der getrennte Schritt.
 
 Sonderzeichen im Passwort müssen in den `*_URL`-Variablen prozent-kodiert sein
 (`@` → `%40`, `?` → `%3F`, …), sonst scheitert schon das Parsen des DSN.

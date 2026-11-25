@@ -28,14 +28,20 @@ Was die Skripte im Einzelnen tun und was die häufigen Fehlermeldungen bedeuten,
 
 ```bash
 docker compose up -d postgres
-set -a; . ./backend/.env; set +a          # go run und migrate lesen keine .env
-migrate -path backend/migrations -database "$DATABASE_URL" up
-cd backend && go run .     # :8080
+set -a; . ./backend/.env; set +a          # go run liest keine .env
+cd backend && go run .     # :8080, wendet ausstehende Migrationen selbst an
 cd frontend && npm install && npm run dev
 ```
 
-Ganzer Stack in Docker: `docker compose --profile docker up -d`. Dort übernimmt der
-`migrate`-Service das Schema, der Aufruf von Hand entfällt.
+Migrationen laufen beim Start des Backends automatisch. Wer sie getrennt ausrollen will,
+setzt `MIGRATE_ON_START=false` und stößt sie vorab an:
+
+```bash
+migrate -path backend/migrations -database "$DATABASE_URL" up
+```
+
+Ganzer Stack in Docker: `docker compose --profile docker up -d`. Der `migrate`-Service
+läuft dort weiterhin vor dem Backend und deckt genau diesen getrennten Schritt ab.
 
 Für die Test-Datenbank siehe [Tests](#tests) — die läuft nicht automatisch mit hoch.
 
