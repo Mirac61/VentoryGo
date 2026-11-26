@@ -12,8 +12,17 @@ cp .env.example .env                  # Postgres-Zugangsdaten für den Container
 cp backend/.env.example backend/.env  # DSNs für go run / go test auf dem Host
 ```
 
-Das Passwort muss in beiden Dateien identisch sein. Sonderzeichen in den `*_URL`-Variablen
-prozent-kodieren (`@` → `%40`), sonst scheitert schon das Parsen des DSN.
+Das Passwort muss in beiden Dateien dasselbe sein. In der Root-`.env` steht es nur einmal
+als `POSTGRES_PASSWORD` und darf beliebige Zeichen enthalten; Compose reicht es unverändert
+an den Container weiter. In `backend/.env` steht es in den `*_URL`-Variablen und muss dort
+prozent-kodiert sein (`@` → `%40`, `?` → `%3F`, `}` → `%7D`, `'` → `%27`), sonst scheitert
+schon das Parsen des DSN. `encodeURIComponent` lässt `'`, `(` und `)` stehen — ein `'`
+bricht zusätzlich das Einlesen mit `set -a`, weil Bash es als Quote-Anfang liest. Deshalb
+kodiert der Aufruf diese Zeichen mit:
+
+```bash
+node -p "encodeURIComponent(process.argv[1]).replace(/[()*']/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())" 'mein}pw'
+```
 
 Danach reicht ein Befehl — er startet Postgres, spielt die Migrationen ein und hängt
 Backend und Frontend mit getrennt beschrifteter Ausgabe daneben. Strg-C beendet alles:
@@ -23,6 +32,10 @@ Backend und Frontend mit getrennt beschrifteter Ausgabe daneben. Strg-C beendet 
 .\scripts\dev.ps1     # Windows (PowerShell 7)
 ```
 
+Ein Konto ist nicht vorbelegt. Nach dem Start unter `http://localhost:8090/register`
+registrieren (beim manuellen Start `http://localhost:5173/register`), danach unter `/login`
+anmelden. Das Passwort braucht mindestens 12 Zeichen.
+
 Was die Skripte im Einzelnen tun und was die häufigen Fehlermeldungen bedeuten, steht in
 [`scripts/README.md`](scripts/README.md). Von Hand geht es weiterhin so:
 
@@ -30,9 +43,15 @@ Was die Skripte im Einzelnen tun und was die häufigen Fehlermeldungen bedeuten,
 docker compose up -d postgres
 set -a; . ./backend/.env; set +a          # go run und migrate lesen keine .env
 migrate -path backend/migrations -database "$DATABASE_URL" up
+# Terminal 1: backend
 cd backend && go run .     # :8080
+
+# Terminal 2: frontend
 cd frontend && npm install && npm run dev
 ```
+
+Bringt ein Branch neue Frontend-Abhängigkeiten mit, reicht nach dem Pull ein
+`cd frontend && npm ci`, bevor `npm run dev` startet.
 
 Ganzer Stack in Docker: `docker compose --profile docker up -d`. Dort übernimmt der
 `migrate`-Service das Schema, der Aufruf von Hand entfällt.

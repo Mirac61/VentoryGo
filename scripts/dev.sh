@@ -145,9 +145,7 @@ done
 
 # Der migrate-Container teilt sich den Netzwerk-Namespace mit Postgres. Dadurch trifft
 # das `localhost:5432` aus DATABASE_URL genau die Datenbank, und der bereits korrekt
-# prozent-kodierte Wert aus backend/.env lässt sich unverändert weiterreichen -- der
-# migrate-Service in docker-compose.yml baut die URL dagegen selbst zusammen und
-# zerbricht an Sonderzeichen im Passwort (Issue #71).
+# prozent-kodierte Wert aus backend/.env lässt sich unverändert weiterreichen.
 log "Migrationen einspielen …"
 docker run --rm \
     --network "container:$PG_CONTAINER" \
