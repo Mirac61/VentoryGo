@@ -6,16 +6,20 @@ Go/Gin REST API für Rechnungsverwaltung, Postgres-Persistenz via `pgx`.
 
 ```bash
 # im Repo-Root
-cp .env.example .env
-cp backend/.env.example backend/.env
-docker compose up -d postgres
+cp .env.example .env                  # POSTGRES_USER/PASSWORD/DB für den Container
+cp backend/.env.example backend/.env  # DATABASE_URL/TEST_DATABASE_URL, gleiches Passwort
 
-cd backend
-set -a; source .env; set +a   # go run liest keine .env
-go run .                      # :8080, wendet ausstehende Migrationen an
+docker compose up -d postgres
+set -a; . ./backend/.env; set +a      # go run und migrate lesen keine .env
+migrate -path backend/migrations -database "$DATABASE_URL" up
+cd backend && go run .                # :8080
 ```
 
-Server läuft auf `:8080`.
+Der `migrate`-Aufruf und `go run` brauchen `DATABASE_URL` in der Shell; die Datei allein
+wird von beiden nicht gelesen. In einer neuen Shell muss das `set -a` deshalb erneut laufen.
+
+Server läuft auf `:8080`. Ein Konto ist nicht vorbelegt: im Frontend unter `/register`
+registrieren (Passwort mindestens 12 Zeichen), dann unter `/login` anmelden.
 
 Migrationen laufen beim Start automatisch. Für einen getrennten Migrationsschritt
 `MIGRATE_ON_START=false` setzen und sie vorab anwenden:
@@ -27,8 +31,14 @@ migrate -path migrations -database "$DATABASE_URL" up
 Ganzer Stack in Docker: `docker compose --profile docker up`. Der `migrate`-Service läuft
 dort vor dem Backend und ist damit der getrennte Schritt.
 
-Sonderzeichen im Passwort müssen in den `*_URL`-Variablen prozent-kodiert sein
-(`@` → `%40`, `?` → `%3F`, …), sonst scheitert schon das Parsen des DSN.
+In den `*_URL`-Variablen müssen Sonderzeichen im Passwort prozent-kodiert sein
+(`@` → `%40`, `?` → `%3F`, `}` → `%7D`, `'` → `%27`), sonst scheitert schon das Parsen des
+DSN. `encodeURIComponent` lässt `'` stehen — ein `'` bricht zusätzlich das Einlesen mit
+`set -a`. Erzeugen mit:
+
+```bash
+node -p "encodeURIComponent(process.argv[1]).replace(/[()*']/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())" 'mein}pw'
+```
 
 ## Tests
 
