@@ -296,8 +296,8 @@ func priceHeading(currency string) string {
 	return "Einzelpreis (" + currency + ")"
 }
 
-func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
-	m.AddRows(spacer(6))
+func addTotals(document core.Maroto, inv invoice.Invoice, design Design) {
+	document.AddRows(spacer(6))
 
 	const (
 		totalsIndent = colPos + colDesc
@@ -305,8 +305,15 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 		totalsValue  = colVat + colAmount
 	)
 
+	const (
+		subtotalRowHeight = 6.0
+		totalRowHeight    = 13.0
+		ruleSpacerHeight  = 1.5
+		ruleRowHeight     = 3.0
+	)
+
 	subtotal := func(label, value string) {
-		m.AddRow(6,
+		document.AddRow(subtotalRowHeight,
 			col.New(totalsIndent),
 			text.NewCol(totalsLabel, label, props.Text{
 				Size: design.sizeSmall, Color: design.muted, Align: align.Right, Top: 1.4,
@@ -317,16 +324,27 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 		)
 	}
 
-	subtotal("Nettobetrag", formatMoney(inv.NetTotal, inv.Currency))
+	totalsLines := [][2]string{{"Nettobetrag", formatMoney(inv.NetTotal, inv.Currency)}}
 	if !inv.VatExempt {
-		for _, entry := range vatRowsOf(inv) {
-			subtotal(entry[0], entry[1])
-		}
+		totalsLines = append(totalsLines, vatRowsOf(inv)...)
+	}
+
+	// maroto breaks between rows, so the block is kept whole by starting a new page.
+	blockHeight := float64(len(totalsLines))*subtotalRowHeight + totalRowHeight
+	if design.totalRule > 0 {
+		blockHeight += ruleSpacerHeight + ruleRowHeight
+	}
+	if !document.FitlnCurrentPage(blockHeight) {
+		document.AddPages(page.New())
+	}
+
+	for _, line := range totalsLines {
+		subtotal(line[0], line[1])
 	}
 
 	if design.totalRule > 0 {
-		m.AddRows(spacer(1.5))
-		m.AddRow(3,
+		document.AddRows(spacer(ruleSpacerHeight))
+		document.AddRow(ruleRowHeight,
 			col.New(totalsIndent),
 			col.New(totalsLabel+totalsValue).WithStyle(&props.Cell{
 				BorderType:      border.Top,
@@ -336,12 +354,11 @@ func addTotals(m core.Maroto, inv invoice.Invoice, design Design) {
 		)
 	}
 
-	const totalRowHeight = 13
 	totalColour := design.totalInk
 	if design.totalInkIsAccent {
 		totalColour = design.accent
 	}
-	totalRow := m.AddRow(totalRowHeight,
+	totalRow := document.AddRow(totalRowHeight,
 		col.New(totalsIndent),
 		text.NewCol(totalsLabel, "Gesamtbetrag", props.Text{
 			Size: design.sizeSmall, Style: fontstyle.Bold, Color: totalColour,
