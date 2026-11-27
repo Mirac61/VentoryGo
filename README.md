@@ -63,12 +63,14 @@ To run Postgres, migrations, and the backend completely in Docker instead: `dock
 
 Open [http://localhost:5173](http://localhost:5173), register an account, create a draft in the editor, and click **Rechnung ausstellen** to assign its invoice number and download the PDF.
 
-Local checks (the same ones `.github/workflows/ci.yml` runs on every PR):
+Quick local checks (no database required):
 
 ```bash
-cd backend  && gofmt -l . && go vet ./... && go test -short -race ./...
-cd frontend && npm run lint && npm run build
+(cd backend  && test -z "$(gofmt -l .)" && go vet ./... && go test -short -race ./...)
+(cd frontend && npm run lint && npm run build)
 ```
+
+CI (`.github/workflows/ci.yml`) runs the full `go test -race ./...` suite (without `-short`) against PostgreSQL 16; see [`CONTRIBUTING.md`](CONTRIBUTING.md#tests) to configure `TEST_DATABASE_URL` for local database tests.
 
 ## Documentation
 
