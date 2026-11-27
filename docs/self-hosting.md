@@ -15,7 +15,7 @@ flowchart LR
 ```
 
 > [!WARNING]
-> `docker-compose.yml` publishes `5432` and `8080` on `0.0.0.0` for local development. Ordinary host firewalls such as UFW do **not** reliably block Docker-published ports because Docker routes container traffic in `nat`/`DOCKER` chains before `INPUT` rules apply. On any network-reachable server, override the port bindings to loopback before starting Compose (Step 2) and verify with `ss -tln`.
+> `docker-compose.yml` publishes `5432` and `8080` on `0.0.0.0` for local development. Ordinary host firewalls such as UFW do **not** reliably block Docker-published ports because Docker routes container traffic in `nat`/`DOCKER` chains before `INPUT` rules apply. Use a patched **Docker Engine 28.3.3+** with **Docker Compose v2.24.4+** (earlier 27.x/28.x releases had L2/firewalld loopback-exposure bugs; see [Docker port publishing docs](https://docs.docker.com/engine/network/port-publishing/)), override the port bindings to loopback before starting Compose (Step 2), and verify from outside the host.
 
 ## 1. Configure Environment
 
@@ -63,11 +63,15 @@ sudo chmod -R a+rX /var/www/ventorygo
 docker compose --profile docker up -d --build
 ```
 
-Verify health and confirm neither `5432` nor `8080` is bound to `0.0.0.0` or `[::]`:
+Verify container port mappings and test from **another machine** (including the same L2 network segment where possible, since `ss -tln` alone misses Docker NAT rules when `userland-proxy` is disabled):
 
 ```bash
-docker compose --profile docker ps
-ss -tln | grep -E ':(5432|8080)\b'   # must show 127.0.0.1:8080 only
+docker compose --profile docker ps    # backend: 127.0.0.1:8080->8080/tcp; postgres: no host port
+ss -tln | grep -E ':(5432|8080)\b'    # local check: 127.0.0.1:8080 only
+
+# Run from a separate host — both connections must fail/time out:
+nc -zv -w 3 <SERVER_IP> 5432
+nc -zv -w 3 <SERVER_IP> 8080
 ```
 
 ## 3. Reverse Proxy (Caddy)
@@ -107,15 +111,19 @@ invoices.example.com {
 )
 ```
 
-**Restore** (stops `backend` first to prevent concurrent writes, runs inside a single transaction with `ON_ERROR_STOP=1`, and restarts `backend` only on success):
+**Restore** (decompresses and validates the archive *before* stopping `backend` or starting `psql`, runs inside a single transaction with `ON_ERROR_STOP=1`, and restarts `backend` only on success):
 
 ```bash
 (
   set -euo pipefail
+  umask 077
+  install -d -m 0700 backups
+  tmp="$(mktemp backups/.ventorygo-restore.XXXXXX)"
+  trap 'rm -f "$tmp"' EXIT
+  gunzip -c backups/ventorygo-2026-11-27.sql.gz > "$tmp"
   docker compose --profile docker stop backend
-  gunzip -c backups/ventorygo-2026-11-27.sql.gz \
-    | docker compose exec -T postgres \
-        psql -U invoice_user -d invoice_db --single-transaction -v ON_ERROR_STOP=1
+  docker compose exec -T postgres \
+    psql -U invoice_user -d invoice_db --single-transaction -v ON_ERROR_STOP=1 < "$tmp"
   docker compose --profile docker start backend
 )
 ```
