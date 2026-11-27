@@ -74,6 +74,7 @@ cd frontend && npm run lint && npm run build
 
 | Document | Contents |
 |---|---|
+| [`docs/architecture.md`](docs/architecture.md) | System overview, backend layers, DB ER diagram, atomic numbering, and autosave flow |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup details, branch & commit conventions, migrations, and Postgres test DB |
 | [`backend/README.md`](backend/README.md) | REST API endpoints, error format, cent/quantity math, and Argon2id load-test numbers |
 | [`frontend/README.md`](frontend/README.md) | React client setup and npm scripts |
