@@ -5,11 +5,14 @@ import (
 
 	"bytes"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/johnfercher/go-tree/node"
+	"github.com/johnfercher/maroto/v2/pkg/core"
 	"github.com/johnfercher/maroto/v2/pkg/props"
 	"github.com/phpdave11/gofpdf"
 	"github.com/stretchr/testify/assert"
@@ -280,6 +283,178 @@ func TestGenerate_Pagination(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.True(t, bytes.HasPrefix(doc, []byte("%PDF-")))
+	})
+}
+
+func pagesTexts(t *testing.T, testInvoice invoice.Invoice, design Design) [][]string {
+	document, err := buildDocument(testInvoice, design)
+	require.NoError(t, err)
+
+	var collectTexts func(structureNode *node.Node[core.Structure]) []string
+	collectTexts = func(structureNode *node.Node[core.Structure]) []string {
+		var texts []string
+		if text, isText := structureNode.GetData().Value.(string); isText {
+			texts = append(texts, text)
+		}
+		for _, child := range structureNode.GetNexts() {
+			texts = append(texts, collectTexts(child)...)
+		}
+		return texts
+	}
+
+	var pages [][]string
+	for _, pageNode := range document.GetStructure().GetNexts() {
+		pages = append(pages, collectTexts(pageNode))
+	}
+	return pages
+}
+
+// totalsBlockPageTexts is the text of the page that carries the totals block.
+func totalsBlockPageTexts(t *testing.T, testInvoice invoice.Invoice, design Design) []string {
+	for _, pageTexts := range pagesTexts(t, testInvoice, design) {
+		if slices.Contains(pageTexts, "Nettobetrag") {
+			return pageTexts
+		}
+	}
+	require.Fail(t, "no page carries the totals block")
+	return nil
+}
+
+// invoiceFromService runs the items through the real service, so the PDF is
+// checked against the totals the API itself returns.
+func invoiceFromService(t *testing.T, items ...invoice.LineItem) invoice.Invoice {
+	draft := invoiceWithItems(0)
+	draft.Items = items
+	created, err := invoice.NewService(invoice.NewRepository()).Create(draft, "owner")
+	require.NoError(t, err)
+	return created
+}
+
+func lineItem(description string, unitPriceInCents int64, vatRateInBasisPoints int) invoice.LineItem {
+	return invoice.LineItem{
+		Description: description,
+		Quantity:    1000,
+		Unit:        "Stk.",
+		UnitPrice:   invoice.Money(unitPriceInCents),
+		VatRate:     vatRateInBasisPoints,
+	}
+}
+
+func TestGenerate_TotalsBlock(t *testing.T) {
+	mixedRateInvoice := func(itemCount int) invoice.Invoice {
+		mixed := invoiceWithItems(itemCount)
+		mixed.Items[0].VatRate, mixed.Items[0].Total = 700, 20000
+		mixed.Items[1%itemCount].VatRate = 1900
+		mixed.VatBreakdown = []invoice.VATBreakdownEntry{
+			{VatRate: 700, NetAmount: 20000, VatAmount: 1400},
+			{VatRate: 1900, NetAmount: 5000, VatAmount: 950},
+		}
+		mixed.NetTotal, mixed.VATAmount, mixed.GrossTotal = 25000, 2350, 27350
+		return mixed
+	}
+
+	t.Run("one line per rate in API order, net and gross around them", func(t *testing.T) {
+		blockText := strings.Join(totalsBlockPageTexts(t, mixedRateInvoice(3), Modern), "|")
+
+		expectedOrder := []string{"Nettobetrag", "zzgl. 7 % USt auf 200,00", "14,00", "zzgl. 19 % USt auf 50,00", "9,50", "Gesamtbetrag", "273,50"}
+		previousPosition := -1
+		for _, expectedText := range expectedOrder {
+			position := strings.Index(blockText, expectedText)
+			require.Greater(t, position, previousPosition, "%q out of order or missing", expectedText)
+			previousPosition = position
+		}
+	})
+
+	t.Run("a single rate still gets its breakdown line", func(t *testing.T) {
+		singleRateInvoice := invoiceWithItems(2)
+		singleRateInvoice.VatBreakdown = []invoice.VATBreakdownEntry{{VatRate: 1900, NetAmount: 2000, VatAmount: 380}}
+
+		assert.Contains(t, totalsBlockPageTexts(t, singleRateInvoice, Modern), "zzgl. 19 % USt auf 20,00")
+	})
+
+	t.Run("the block is never split across pages", func(t *testing.T) {
+		for _, design := range []Design{Classic, Modern, Minimal} {
+			blockMovedToLaterPage := false
+			for itemCount := 1; itemCount <= 45; itemCount++ {
+				for pageIndex, pageTexts := range pagesTexts(t, mixedRateInvoice(itemCount), design) {
+					pageContains := func(text string) bool { return slices.Contains(pageTexts, text) }
+					assert.Equal(t, pageContains("Nettobetrag"), pageContains("Gesamtbetrag"), "items=%d page %d", itemCount, pageIndex+1)
+					assert.Equal(t, pageContains("Nettobetrag"), pageContains("zzgl. 19 % USt auf 50,00"), "items=%d page %d", itemCount, pageIndex+1)
+					// A later page with so little text holds the block but no item table.
+					blockMovedToLaterPage = blockMovedToLaterPage || (pageContains("Nettobetrag") && pageIndex > 0 && len(pageTexts) < 40)
+				}
+			}
+			assert.True(t, blockMovedToLaterPage, "sweep never hit a page break before the block")
+		}
+	})
+
+	t.Run("a vat-exempt invoice shows no tax lines but stays whole", func(t *testing.T) {
+		for itemCount := 1; itemCount <= 45; itemCount++ {
+			exemptInvoice := invoiceWithItems(itemCount)
+			exemptInvoice.VatExempt = true
+			exemptInvoice.NetTotal, exemptInvoice.GrossTotal = 1000*invoice.Money(itemCount), 1000*invoice.Money(itemCount)
+
+			pageTexts := totalsBlockPageTexts(t, exemptInvoice, Modern)
+
+			assert.Contains(t, pageTexts, "Gesamtbetrag", "items=%d", itemCount)
+			assert.NotContains(t, strings.Join(pageTexts, "|"), "USt auf", "items=%d", itemCount)
+		}
+	})
+}
+
+func TestGenerate_TotalsMatchAPI(t *testing.T) {
+	// 3 x 0,33 at 19 % rounds 18,81 ct up to 19 ct; the PDF must not re-round.
+	apiInvoice := invoiceFromService(t,
+		lineItem("Kabel", 33, 1900), lineItem("Stecker", 33, 1900), lineItem("Adapter", 33, 1900),
+		lineItem("Fachbuch", 2000, 700),
+	)
+	require.Len(t, apiInvoice.VatBreakdown, 2)
+
+	pageTexts := totalsBlockPageTexts(t, apiInvoice, Modern)
+
+	// Hard-coded, so a rounding change in either place fails the test.
+	for _, expectedText := range []string{
+		"20,99 €",
+		"zzgl. 7 % USt auf 20,00", "1,40 €",
+		"zzgl. 19 % USt auf 0,99", "0,19 €",
+		"22,58 €",
+	} {
+		assert.Contains(t, pageTexts, expectedText)
+	}
+	// Every API figure appears verbatim.
+	assert.Contains(t, pageTexts, formatMoney(apiInvoice.NetTotal, apiInvoice.Currency))
+	assert.Contains(t, pageTexts, formatMoney(apiInvoice.GrossTotal, apiInvoice.Currency))
+	for _, entry := range apiInvoice.VatBreakdown {
+		assert.Contains(t, pageTexts, formatMoney(entry.VatAmount, apiInvoice.Currency))
+		assert.Contains(t, pageTexts, "zzgl. "+formatVatRate(entry.VatRate)+" USt auf "+formatAmount(entry.NetAmount))
+	}
+}
+
+func TestVatRowsOf(t *testing.T) {
+	t.Run("keeps the API order", func(t *testing.T) {
+		vatRows := vatRowsOf(invoice.Invoice{Currency: "EUR", VatBreakdown: []invoice.VATBreakdownEntry{
+			{VatRate: 1900, NetAmount: 100, VatAmount: 19},
+			{VatRate: 700, NetAmount: 100, VatAmount: 7},
+		}})
+
+		assert.Equal(t, [][2]string{
+			{"zzgl. 19 % USt auf 1,00", "0,19 €"},
+			{"zzgl. 7 % USt auf 1,00", "0,07 €"},
+		}, vatRows)
+	})
+
+	t.Run("fractional rate and thousands separator", func(t *testing.T) {
+		vatRows := vatRowsOf(invoice.Invoice{Currency: "EUR", VatBreakdown: []invoice.VATBreakdownEntry{
+			{VatRate: 550, NetAmount: 123456789, VatAmount: 6790123},
+		}})
+
+		assert.Equal(t, [][2]string{{"zzgl. 5,5 % USt auf 1.234.567,89", "67.901,23 €"}}, vatRows)
+	})
+
+	t.Run("without breakdown falls back to the single vat amount", func(t *testing.T) {
+		vatRows := vatRowsOf(invoice.Invoice{Currency: "EUR", VATAmount: 380})
+
+		assert.Equal(t, [][2]string{{"zzgl. Umsatzsteuer", "3,80 €"}}, vatRows)
 	})
 }
 

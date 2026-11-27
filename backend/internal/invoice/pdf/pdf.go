@@ -8,12 +8,25 @@ import (
 	"github.com/johnfercher/maroto/v2/pkg/config"
 	"github.com/johnfercher/maroto/v2/pkg/consts/fontstyle"
 	"github.com/johnfercher/maroto/v2/pkg/consts/pagesize"
+	"github.com/johnfercher/maroto/v2/pkg/core"
 	"github.com/johnfercher/maroto/v2/pkg/props"
 )
 
 var Default = Classic
 
 func Generate(inv invoice.Invoice, design Design) ([]byte, error) {
+	document, err := buildDocument(inv, design)
+	if err != nil {
+		return nil, err
+	}
+	generated, err := document.Generate()
+	if err != nil {
+		return nil, fmt.Errorf("pdf: generation failed: %w", err)
+	}
+	return generated.GetBytes(), nil
+}
+
+func buildDocument(inv invoice.Invoice, design Design) (core.Maroto, error) {
 	// Guard against callers that set VatExempt without the mandatory §19 UStG
 	// notice: omitting VAT rows without an exemption notice is not a valid
 	// German invoice.
@@ -53,36 +66,31 @@ func Generate(inv invoice.Invoice, design Design) ([]byte, error) {
 		}).
 		Build()
 
-	m := maroto.New(cfg)
+	document := maroto.New(cfg)
 
-	if err := m.RegisterFooter(footerRows(inv, design)...); err != nil {
+	if err := document.RegisterFooter(footerRows(inv, design)...); err != nil {
 		return nil, fmt.Errorf("pdf: footer setup failed: %w", err)
 	}
 
-	addLetterhead(m, inv, design)
-	addAddressAndInfoBlock(m, inv, design)
-	addSubject(m, inv, design)
+	addLetterhead(document, inv, design)
+	addAddressAndInfoBlock(document, inv, design)
+	addSubject(document, inv, design)
 
 	// maroto renders a header immediately, so registering it here places it
 	// below the subject and repeats it on continuation pages.
-	if err := m.RegisterHeader(itemTableHeaderRows(inv, design)...); err != nil {
+	if err := document.RegisterHeader(itemTableHeaderRows(inv, design)...); err != nil {
 		return nil, fmt.Errorf("pdf: table header setup failed: %w", err)
 	}
 
-	addItemsTable(m, inv, design)
+	addItemsTable(document, inv, design)
 
 	// Totals spilling onto a new page must not carry an empty table header.
-	if err := m.RegisterHeader(); err != nil {
+	if err := document.RegisterHeader(); err != nil {
 		return nil, fmt.Errorf("pdf: table header reset failed: %w", err)
 	}
 
-	addTotals(m, inv, design)
-	addPaymentBlock(m, inv, design)
-	addNotesAndLegalNotices(m, inv, design)
-
-	document, err := m.Generate()
-	if err != nil {
-		return nil, fmt.Errorf("pdf: generation failed: %w", err)
-	}
-	return document.GetBytes(), nil
+	addTotals(document, inv, design)
+	addPaymentBlock(document, inv, design)
+	addNotesAndLegalNotices(document, inv, design)
+	return document, nil
 }
