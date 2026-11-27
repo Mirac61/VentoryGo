@@ -22,6 +22,10 @@ func main() {
 	defer pool.Close()
 	log.Println("connected to database successfully")
 
+	if err := migrateDatabase(pool); err != nil {
+		log.Fatalf("failed to migrate database: %v", err)
+	}
+
 	cookieSecure, err := auth.CookieSecureFromEnv()
 	if err != nil {
 		log.Fatalf("failed to read cookie config: %v", err)

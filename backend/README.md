@@ -21,8 +21,15 @@ wird von beiden nicht gelesen. In einer neuen Shell muss das `set -a` deshalb er
 Server läuft auf `:8080`. Ein Konto ist nicht vorbelegt: im Frontend unter `/register`
 registrieren (Passwort mindestens 12 Zeichen), dann unter `/login` anmelden.
 
-Ganzer Stack in Docker: `docker compose --profile docker up`. Dort migriert ein eigener
-`migrate`-Service vor dem Backend-Start, der `migrate`-Aufruf von Hand entfällt.
+Migrationen laufen beim Start automatisch. Für einen getrennten Migrationsschritt
+`MIGRATE_ON_START=false` setzen und sie vorab anwenden:
+
+```bash
+migrate -path migrations -database "$DATABASE_URL" up
+```
+
+Ganzer Stack in Docker: `docker compose --profile docker up`. Der `migrate`-Service läuft
+dort vor dem Backend und ist damit der getrennte Schritt.
 
 In den `*_URL`-Variablen müssen Sonderzeichen im Passwort prozent-kodiert sein
 (`@` → `%40`, `?` → `%3F`, `}` → `%7D`, `'` → `%27`), sonst scheitert schon das Parsen des
