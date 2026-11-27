@@ -75,9 +75,10 @@ cd frontend && npm run lint && npm run build
 | Document | Contents |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | System overview, backend layers, DB ER diagram, atomic numbering, and autosave flow |
+| [`docs/self-hosting.md`](docs/self-hosting.md) | Production deployment with Docker Compose, Caddy TLS proxy, and Postgres backups |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Setup details, branch & commit conventions, migrations, and Postgres test DB |
 | [`backend/README.md`](backend/README.md) | REST API endpoints, error format, cent/quantity math, and Argon2id load-test numbers |
-| [`frontend/README.md`](frontend/README.md) | React client setup and npm scripts |
+| [`frontend/README.md`](frontend/README.md) | React routes, auth state, autosave queue, and `pdfjs-dist` canvas mechanics |
 | [`scripts/README.md`](scripts/README.md) | Step-by-step dev script behavior, `mprocs` support, and common error messages |
 | [`docs/adr/README.md`](docs/adr/README.md) | Architecture Decision Records (why server-side sessions, why Maroto v2) |
 | [`SECURITY.md`](SECURITY.md) | How to report security vulnerabilities privately |
